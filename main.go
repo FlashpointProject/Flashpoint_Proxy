@@ -143,6 +143,8 @@ func setContentType(r *http.Request, resp *http.Response) {
 func main() {
 	//Handle the re-routing to local files or what not.
 	proxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		// Remove port from host if exists (old apps don't clean it before sending requests?)
+		r.URL.Host = strings.Split(r.URL.Host, ":")[0]
 		fmt.Printf("Proxy Request: %s\n", r.URL.Host+r.URL.Path)
 		newURL := *r.URL
 		if r.TLS == nil {
