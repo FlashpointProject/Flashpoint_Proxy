@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -52,7 +52,7 @@ var cwd string
 
 func init() {
 	// Load the content types from the JSON file
-	data, err := ioutil.ReadFile("proxySettings.json")
+	data, err := os.ReadFile("proxySettings.json")
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +93,6 @@ func init() {
 	proxySettings.ProxyPort = strconv.Itoa(*proxyPort)
 	proxySettings.ServerHTTPPort = strconv.Itoa(*serverHTTPPort)
 	proxySettings.ServerHTTPSPort = strconv.Itoa(*serverHTTPSPort)
-	proxySettings.GameRootPath = *gameRootPath
 	proxySettings.ApiPrefix = *apiPrefix
 	proxySettings.UseMad4FP = *useMad4FP
 	proxySettings.LegacyGoPort = strconv.Itoa(*legacyGoPort)
@@ -101,6 +100,7 @@ func init() {
 	proxySettings.LegacyPHPPath = *legacyPHPPath
 	proxySettings.LegacyUsePHPServer = *legacyUsePHPServer
 	proxySettings.LegacyHTDOCSPath = *legacyHTDOCSPath
+	proxySettings.GameRootPath = path.Clean(*gameRootPath) + "/"
 
 	//Setup the proxy.
 	proxy = goproxy.NewProxyHttpServer()
@@ -214,6 +214,7 @@ func main() {
 				"",
 				proxySettings.VerboseLogging,
 				proxySettings.ExtIndexTypes,
+				proxySettings.GameRootPath,
 			),
 		))
 	}()

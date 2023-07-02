@@ -1,0 +1,3 @@
+[submodule "zipfs"]
+	path = zipfs
+	url = https://github.com/krum110487/zipfs.git
