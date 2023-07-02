@@ -43,6 +43,7 @@ type ProxySettings struct {
 	LegacyUsePHPServer bool              `json:"legacyUsePHPServer"`
 	LegacyHTDOCSPath   string            `json:"legacyHTDOCSPath"`
 	LegacyCGIBINPath   string            `json:"legacyCGIBINPath"`
+	PhpCgiPath         string            `json:"phpCgiPath"`
 }
 
 // ExtApplicationTypes is a map that holds the content types of different file extensions
@@ -85,7 +86,7 @@ func init() {
 	legacyPHPPath := flag.String("legacyPHPPath", "D:\\Flashpoint 11 Infinity\\Legacy", "This is the path for HTDOCS")
 	legacyUsePHPServer := flag.Bool("legacyUsePHPServer", true, "This will run the original PHP script in parallel")
 	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", "D:\\Flashpoint 11 Infinity\\Legacy\\htdocs", "This is the path for HTDOCS")
-
+	phpCgiPath := flag.String("phpCgiPath", "D:\\Flashpoint 11 Infinity\\Legacy\\php-cgi.exe", "Path to PHP CGI executable")
 	flag.Parse()
 
 	//Apply all of the flags to the settings
@@ -101,6 +102,7 @@ func init() {
 	proxySettings.LegacyUsePHPServer = *legacyUsePHPServer
 	proxySettings.LegacyHTDOCSPath = *legacyHTDOCSPath
 	proxySettings.GameRootPath = path.Clean(*gameRootPath) + "/"
+	proxySettings.PhpCgiPath = path.Clean(*phpCgiPath)
 
 	//Setup the proxy.
 	proxy = goproxy.NewProxyHttpServer()
@@ -215,6 +217,7 @@ func main() {
 				proxySettings.VerboseLogging,
 				proxySettings.ExtIndexTypes,
 				proxySettings.GameRootPath,
+				proxySettings.PhpCgiPath,
 			),
 		))
 	}()
