@@ -1,0 +1,91 @@
+name: Nexus (Development)
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - 'release/**'
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout submodules
+        shell: bash
+        run: |
+          auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+          git submodule sync --recursive
+          git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+      - name: Build
+        env:
+          GOOS: "windows"
+          GOARCH: "386"
+        run: go build -o "Flashpoint Proxy.exe" .
+      - name: Package
+        run: zip Server.zip "./Flashpoint Proxy.exe" ./proxySettings.json
+      - name: Generate Metadata
+        run: |
+          sudo apt install libarchive-zip-perl -y
+          jq --null-input \
+            --arg name     "GameZIP Server" \
+            --arg desc     "Allows Flashpoint to download and serve entries using the modern format." \
+            --arg date     $(date +%s) \
+            --arg download $(du -b Server.zip | awk '{print $1}') \
+            --arg install  $(7z l Server.zip | tail -n 1 | awk '{print $3}') \
+            --arg path     "Server" \
+            --arg hash     $(crc32 Server.zip) \
+            '{ 
+              "title": $name,
+              "description": $desc,
+              "date-modified": $date,
+              "download-size": $download,
+              "install-size": $install,
+              "path": $path,
+              "depends": $depends,
+              "crc32": $hash 
+            }' > metadata.json
+          ls -la
+          cat metadata.json
+      - name: Deploy to Nexus
+        uses: sonatype-nexus-community/nexus-repo-github-action@master
+        with:
+          serverUrl: https://nexus-dev.unstable.life
+          username: github
+          password: ${{ secrets.NEXUS_PASSWORD }}
+          format: raw
+          repository: components
+          coordinates: directory=/
+          assets: filename=core-server-gamezip.zip
+          filename: Server.zip
+      - name: Deploy Metadata to Nexus
+        uses: sonatype-nexus-community/nexus-repo-github-action@master
+        with:
+          serverUrl: https://nexus-dev.unstable.life
+          username: github
+          password: ${{ secrets.NEXUS_PASSWORD }}
+          format: raw
+          repository: components
+          coordinates: directory=/
+          assets: filename=core-server-gamezip.json
+          filename: metadata.json
+      - name: Generate components.xml
+        run: |
+          git clone https://gitlab.unstable.life/flashpoint/docker/nexus-deploy-action.git nexus
+          cd nexus
+          python3 ./merge-metadata.py "https://nexus-dev.unstable.life/service/rest/v1/search?repository=development&name=*.json" components.xml "https://nexus-dev.unstable.life/repository/development/"
+      - name: Deploy components.xml to Nexus
+        uses: sonatype-nexus-community/nexus-repo-github-action@master
+        with:
+          serverUrl: https://nexus-dev.unstable.life
+          username: github
+          password: ${{ secrets.NEXUS_PASSWORD }}
+          format: raw
+          repository: components
+          coordinates: directory=/
+          assets: filename=components.xml
+          filename: ./nexus/components.xml
+
