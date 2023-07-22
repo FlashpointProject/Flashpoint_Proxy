@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -79,7 +78,7 @@ func init() {
 	serverHTTPPort := flag.Int("serverHttpPort", 22501, "zip server http listen port")
 	serverHTTPSPort := flag.Int("serverHttpsPort", 22502, "zip server https listen port")
 	gameRootPath := flag.String("gameRootPath", "D:\\Flashpoint 11 Infinity\\Data\\Games", "This is the path where to find the zips")
-	apiPrefix := flag.String("apiPrefix", proxySettings.ApiPrefix, "apiPrefix is used to prefix any API call.")
+	apiPrefix := flag.String("apiPrefix", "/fpProxy/api", "apiPrefix is used to prefix any API call.")
 	useMad4FP := flag.Bool("UseMad4FP", false, "flag to turn on/off Mad4FP.")
 	legacyGoPort := flag.Int("legacyGoPort", 22601, "port that the legacy GO server listens on")
 	legacyPHPPort := flag.Int("legacyPHPPort", 22600, "port that the legacy PHP server listens on")
@@ -101,8 +100,16 @@ func init() {
 	proxySettings.LegacyPHPPath = *legacyPHPPath
 	proxySettings.LegacyUsePHPServer = *legacyUsePHPServer
 	proxySettings.LegacyHTDOCSPath = *legacyHTDOCSPath
-	proxySettings.GameRootPath = path.Clean(*gameRootPath) + "/"
-	proxySettings.PhpCgiPath = path.Clean(*phpCgiPath)
+	proxySettings.GameRootPath, err = filepath.Abs(*gameRootPath)
+	if err != nil {
+		fmt.Printf("Failed to get absolute game root path")
+		return
+	}
+	proxySettings.PhpCgiPath, err = filepath.Abs(*phpCgiPath)
+	if err != nil {
+		fmt.Printf("Failed to get absolute php cgi path")
+		return
+	}
 
 	//Setup the proxy.
 	proxy = goproxy.NewProxyHttpServer()
