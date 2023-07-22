@@ -46,7 +46,6 @@ jobs:
               "download-size": $download,
               "install-size": $install,
               "path": $path,
-              "depends": $depends,
               "crc32": $hash 
             }' > metadata.json
           ls -la
