@@ -219,7 +219,7 @@ func main() {
 	go func() {
 		//TODO: Update these to be modifiable in the properties json.
 		//TODO: Also update the "fpProxy/api/" to be in the properties json.
-		log.Fatal(http.ListenAndServe(":"+proxySettings.ServerHTTPPort,
+		log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ServerHTTPPort,
 			zipfs.EmptyFileServer(
 				proxySettings.ApiPrefix,
 				"",
@@ -236,12 +236,12 @@ func main() {
 		if proxySettings.LegacyUsePHPServer {
 			runLegacyPHP()
 		} else {
-			log.Fatal(http.ListenAndServe(":"+proxySettings.LegacyGoPort, getLegacyProxy()))
+			log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.LegacyGoPort, getLegacyProxy()))
 		}
 	}()
 
 	//Start PROXY server
-	log.Fatal(http.ListenAndServe(":"+proxySettings.ProxyPort, proxy))
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ProxyPort, proxy))
 }
 
 func runLegacyPHP() {
