@@ -100,12 +100,12 @@ func init() {
 	proxySettings.LegacyPHPPath = *legacyPHPPath
 	proxySettings.LegacyUsePHPServer = *legacyUsePHPServer
 	proxySettings.LegacyHTDOCSPath = *legacyHTDOCSPath
-	proxySettings.GameRootPath, err = filepath.Abs(*gameRootPath)
+	proxySettings.GameRootPath, err = filepath.Abs(strings.Trim(*gameRootPath, "\""))
 	if err != nil {
 		fmt.Printf("Failed to get absolute game root path")
 		return
 	}
-	proxySettings.PhpCgiPath, err = filepath.Abs(*phpCgiPath)
+	proxySettings.PhpCgiPath, err = filepath.Abs(strings.Trim(*phpCgiPath, "\""))
 	if err != nil {
 		fmt.Printf("Failed to get absolute php cgi path")
 		return
