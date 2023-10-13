@@ -232,14 +232,15 @@ func main() {
 		))
 	}()
 
-	//Start Legacy server
-	go func() {
-		if proxySettings.LegacyUsePHPServer {
-			runLegacyPHP()
-		} else {
-			log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.LegacyGoPort, getLegacyProxy()))
-		}
-	}()
+	/** THIS SOFTWARE DOES NOT CONTROL THE PHP ROUTER LIFECYCLE */
+	// //Start Legacy server
+	// go func() {
+	// 	if proxySettings.LegacyUsePHPServer {
+	// 		runLegacyPHP()
+	// 	} else {
+	// 		log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.LegacyGoPort, getLegacyProxy()))
+	// 	}
+	// }()
 
 	//Start PROXY server
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ProxyPort, http.AllowQuerySemicolons(proxy)))

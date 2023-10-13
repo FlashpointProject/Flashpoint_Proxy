@@ -16,7 +16,7 @@
 		"phtml", "asp", "aspx", "jsp", "jspx"
 	],
 	"extMimeTypes": {
-        "default": "application/octet-stream",
+		"default": "application/octet-stream",
 		"asd": "application/astound",
 		"pqi": "application/cprplayer",
 		"evy": "application/envoy",
