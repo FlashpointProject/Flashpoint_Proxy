@@ -43,6 +43,7 @@ type ProxySettings struct {
 	LegacyHTDOCSPath   string            `json:"legacyHTDOCSPath"`
 	LegacyCGIBINPath   string            `json:"legacyCGIBINPath"`
 	PhpCgiPath         string            `json:"phpCgiPath"`
+	OverridePaths      []string          `json:"overridePaths"`
 }
 
 // ExtApplicationTypes is a map that holds the content types of different file extensions
@@ -164,7 +165,7 @@ func main() {
 			newURL.Host = "127.0.0.1:" + proxySettings.ServerHTTPSPort
 		}
 
-		//Make the request to the zip server.
+		// Make the request to the zip server.
 		client := &http.Client{}
 		proxyReq, err := http.NewRequest(r.Method, newURL.String(), r.Body)
 		proxyReq.Header = r.Header
@@ -174,22 +175,18 @@ func main() {
 			fmt.Printf("\tServing from Zip...\n")
 		}
 
-		//Check Legacy
+		// Check Legacy
 		if proxyResp.StatusCode >= 400 {
 			fmt.Printf("\tServing from Legacy...\n")
 
-			//Decide on the port to use
-			port := proxySettings.LegacyGoPort
-			if proxySettings.LegacyUsePHPServer {
-				port = proxySettings.LegacyPHPPort
-			}
+			port := proxySettings.LegacyPHPPort
 
-			//Set the Proxy URL and apply it to the Transpor layer so that the request respects the proxy.
+			// Set the Proxy URL and apply it to the Transpor layer so that the request respects the proxy.
 			proxyURL, _ := url.Parse("http://127.0.0.1:" + port)
 			proxy := http.ProxyURL(proxyURL)
 			transport := &http.Transport{Proxy: proxy}
 
-			//A custom Dialer is required for the "localflash" urls, instead of using the DNS, we use this.
+			// A custom Dialer is required for the "localflash" urls, instead of using the DNS, we use this.
 			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 				//Set Dialer timeout and keepalive to 30 seconds and force the address to localhost.
 				dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
@@ -197,20 +194,20 @@ func main() {
 				return dialer.DialContext(ctx, network, addr)
 			}
 
-			//TODO: Investigate if I need to blank this out... I don't think this is required.
+			// TODO: Investigate if I need to blank this out... I don't think this is required.
 			r.RequestURI = ""
 
-			//Make the request with the custom transport.
+			// Make the request with the custom transport.
 			client := &http.Client{Transport: transport, Timeout: 300 * time.Second}
 			proxyResp, err = client.Do(r)
 		}
 
-		//An error occured, log it for debug purposes
+		// An error occured, log it for debug purposes
 		if err != nil {
 			fmt.Printf("UNHANDLED ERROR: %s\n", err)
 		}
 
-		//Update the content type based upon ext for now.
+		// Update the content type based upon ext for now.
 		setContentType(r, proxyResp)
 		return r, proxyResp
 	})
@@ -228,6 +225,7 @@ func main() {
 				proxySettings.GameRootPath,
 				proxySettings.PhpCgiPath,
 				proxySettings.ExtMimeTypes,
+				proxySettings.OverridePaths,
 			),
 		))
 	}()
@@ -283,4 +281,8 @@ func runLegacyPHP() {
 	}()
 
 	wg.Wait()
+}
+
+func serveOverrideFile(w http.ResponseWriter, r *http.Request) {
+
 }
