@@ -227,6 +227,7 @@ func main() {
 				proxySettings.ExtIndexTypes,
 				proxySettings.GameRootPath,
 				proxySettings.PhpCgiPath,
+				proxySettings.ExtMimeTypes,
 			),
 		))
 	}()
@@ -241,7 +242,7 @@ func main() {
 	}()
 
 	//Start PROXY server
-	log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ProxyPort, proxy))
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ProxyPort, http.AllowQuerySemicolons(proxy)))
 }
 
 func runLegacyPHP() {
