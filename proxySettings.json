@@ -149,6 +149,7 @@
 		"htm": "text/html",
 		"html": "text/html",
 		"js": "text/javascript",
+		"json": "application/json",
 		"xpg": "text/x-xpg",
 		"svf": "vector/x-svf",
 		"afl": "video/animaflex",

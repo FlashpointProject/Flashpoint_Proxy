@@ -2,10 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -130,86 +133,155 @@ func setContentType(r *http.Request, resp *http.Response) {
 
 	rext := filepath.Ext(resp.Header.Get("ZIPSVR_FILENAME"))
 	ext := filepath.Ext(r.URL.Path)
+	mime := ""
 
-	//If the request already has an extension, just use it.
+	// If the request already has an extension, fetch the mime via extension
 	if ext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[ext[1:]])
-		return
+		mime = proxySettings.ExtMimeTypes[ext[1:]]
 	}
 
-	//If the response has an extension, use that.
-	if rext != "" {
+	// If the response has an extension, try and fetch the mime for that via extension
+	if mime == "" && rext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[rext[1:]])
-		return
+		mime = proxySettings.ExtMimeTypes[rext[1:]]
 	}
 
-	//Finally, just use the default type
-	resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes["default"])
+	if mime == "" {
+		//Finally, just use the default type
+		mime = proxySettings.ExtMimeTypes["default"]
+	}
 
+	// If mime isn't accepted (and an accept header is given), then falsify the mime type
+	accepted := r.Header.Get("Accept")
+	if accepted != "" {
+		if !strings.Contains(accepted, mime) {
+			mime = strings.Split(accepted, ",")[0]
+		}
+	}
+
+	// Set content type header
+	resp.Header.Set("Content-Type", mime)
+}
+
+func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+	// Remove port from host if exists (old apps don't clean it before sending requests?)
+	r.URL.Host = strings.Split(r.URL.Host, ":")[0]
+	fmt.Printf("Proxy Request: %s\n", r.URL.Host+r.URL.Path)
+
+	// Copy the original request
+	gamezipRequest := &http.Request{
+		Method: r.Method,
+		URL: &url.URL{
+			Scheme:   "http",
+			Host:     "127.0.0.1:" + proxySettings.ServerHTTPPort,
+			Path:     "content/" + r.URL.Host + r.URL.Path,
+			RawQuery: r.URL.RawQuery,
+		},
+		Header: make(http.Header),
+		Body:   r.Body,
+	}
+
+	// Clone the body into both requests by reading and making 2 new readers
+	contents, _ := ioutil.ReadAll(r.Body)
+	gamezipRequest.Body = ioutil.NopCloser(bytes.NewReader(contents))
+
+	// Make the request to the zip server.
+	client := &http.Client{}
+	proxyReq, err := http.NewRequest(gamezipRequest.Method, gamezipRequest.URL.String(), gamezipRequest.Body)
+	if err != nil {
+		fmt.Printf("UNHANDLED GAMEZIP ERROR: %s\n", err)
+	}
+	proxyReq.Header = gamezipRequest.Header
+	proxyResp, err := client.Do(proxyReq)
+
+	if proxyResp.StatusCode < 400 {
+		fmt.Printf("\tServing from Zip...\n")
+	}
+
+	// Check Legacy
+	if proxyResp.StatusCode >= 400 {
+		// Copy the original request
+		legacyRequest := &http.Request{
+			Method: r.Method,
+			URL: &url.URL{
+				Scheme:   "http",
+				Host:     r.URL.Host,
+				Path:     r.URL.Path,
+				RawQuery: r.URL.RawQuery,
+			},
+			Header: make(http.Header),
+			Body:   r.Body,
+		}
+		// Copy in a new body reader
+		legacyRequest.Body = ioutil.NopCloser(bytes.NewReader(contents))
+
+		port := proxySettings.LegacyPHPPort
+
+		// Set the Proxy URL and apply it to the Transpor layer so that the request respects the proxy.
+		proxyURL, _ := url.Parse("http://127.0.0.1:" + port)
+		proxy := http.ProxyURL(proxyURL)
+		transport := &http.Transport{Proxy: proxy}
+
+		// A custom Dialer is required for the "localflash" urls, instead of using the DNS, we use this.
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			//Set Dialer timeout and keepalive to 30 seconds and force the address to localhost.
+			dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+			addr = "127.0.0.1:" + port
+			return dialer.DialContext(ctx, network, addr)
+		}
+
+		// Make the request with the custom transport
+		client := &http.Client{Transport: transport, Timeout: 300 * time.Second}
+		legacyResp, err := client.Do(legacyRequest)
+		// An error occured, log it for debug purposes
+		if err == nil {
+			fmt.Printf("\tServing from Legacy...\n")
+			proxyResp = legacyResp
+		} else {
+			fmt.Printf("UNHANDLED LEGACY ERROR: %s\n", err)
+			fmt.Printf("\tfailure legacy\n")
+		}
+	}
+
+	// Update the content type based upon ext for now.
+	setContentType(r, proxyResp)
+
+	// Add extra headers
+	proxyResp.Header.Set("Access-Control-Allow-Origin", "*")
+	// Keep Alive
+	if strings.ToLower(r.Header.Get("Connection")) == "keep-alive" {
+		proxyResp.Header.Set("Connection", "Keep-Alive")
+		proxyResp.Header.Set("Keep-Alive", "timeout=5; max=100")
+	}
+
+	return r, proxyResp
 }
 
 func main() {
-	//Handle the re-routing to local files or what not.
+	// To create CA cert, refer to https://wiki.mozilla.org/SecurityEngineering/x509Certs#Self_Signed_Certs
+	// Replace CA in GoProxy
+	certFile := "fpproxy.crt"
+	keyFile := "fpproxy.key"
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		panic(err)
+	}
+
+	goproxy.MitmConnect.TLSConfig = goproxy.TLSConfigFromCA(&cert)
+
+	// Handle HTTPS requests (DOES NOT HANDLE HTTP)
+	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	proxy.OnRequest().HijackConnect(func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {
+		_, resp := handleRequest(req, ctx)
+		resp.Write(client)
+		client.Close()
+	})
+
+	// Handle HTTP requests (DOES NOT HANDLE HTTPS)
 	proxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		// Remove port from host if exists (old apps don't clean it before sending requests?)
-		r.URL.Host = strings.Split(r.URL.Host, ":")[0]
-		fmt.Printf("Proxy Request: %s\n", r.URL.Host+r.URL.Path)
-		newURL := *r.URL
-		if r.TLS == nil {
-			//HTTP request
-			newURL.Path = "content/" + r.URL.Host + r.URL.Path
-			newURL.Host = "127.0.0.1:" + proxySettings.ServerHTTPPort
-		} else {
-			//HTTPS request, currently goes to the same server
-			newURL.Path = "content/" + r.URL.Host + r.URL.Path
-			newURL.Host = "127.0.0.1:" + proxySettings.ServerHTTPSPort
-		}
-
-		// Make the request to the zip server.
-		client := &http.Client{}
-		proxyReq, err := http.NewRequest(r.Method, newURL.String(), r.Body)
-		proxyReq.Header = r.Header
-		proxyResp, err := client.Do(proxyReq)
-
-		if proxyResp.StatusCode < 400 {
-			fmt.Printf("\tServing from Zip...\n")
-		}
-
-		// Check Legacy
-		if proxyResp.StatusCode >= 400 {
-			fmt.Printf("\tServing from Legacy...\n")
-
-			port := proxySettings.LegacyPHPPort
-
-			// Set the Proxy URL and apply it to the Transpor layer so that the request respects the proxy.
-			proxyURL, _ := url.Parse("http://127.0.0.1:" + port)
-			proxy := http.ProxyURL(proxyURL)
-			transport := &http.Transport{Proxy: proxy}
-
-			// A custom Dialer is required for the "localflash" urls, instead of using the DNS, we use this.
-			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				//Set Dialer timeout and keepalive to 30 seconds and force the address to localhost.
-				dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
-				addr = "127.0.0.1:" + port
-				return dialer.DialContext(ctx, network, addr)
-			}
-
-			// TODO: Investigate if I need to blank this out... I don't think this is required.
-			r.RequestURI = ""
-
-			// Make the request with the custom transport.
-			client := &http.Client{Transport: transport, Timeout: 300 * time.Second}
-			proxyResp, err = client.Do(r)
-		}
-
-		// An error occured, log it for debug purposes
-		if err != nil {
-			fmt.Printf("UNHANDLED ERROR: %s\n", err)
-		}
-
-		// Update the content type based upon ext for now.
-		setContentType(r, proxyResp)
-		return r, proxyResp
+		return handleRequest(r, ctx)
 	})
 
 	//Start ZIP server
