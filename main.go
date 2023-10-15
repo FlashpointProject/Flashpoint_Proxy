@@ -248,8 +248,8 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 func main() {
 	// To create CA cert, refer to https://wiki.mozilla.org/SecurityEngineering/x509Certs#Self_Signed_Certs
 	// Replace CA in GoProxy
-	certFile := "fpproxy.crt"
-	keyFile := "fpproxy.key"
+	certFile := "fpGameServerCA.crt"
+	keyFile := "fpGameServerCA.key"
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {

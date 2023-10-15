@@ -25,9 +25,9 @@ jobs:
         env:
           GOOS: "windows"
           GOARCH: "386"
-        run: go build -o "Flashpoint Proxy.exe" .
+        run: go build -o "Flashpoint Game Server.exe" .
       - name: Package
-        run: zip Server.zip "./Flashpoint Proxy.exe" ./proxySettings.json ./fpproxy.crt ./fpproxy.key
+        run: zip Server.zip "./Flashpoint Game Server.exe" ./proxySettings.json ./fpGameServerCA.crt ./fpGameServerCA.key
       - name: Generate Metadata
         run: |
           sudo apt install libarchive-zip-perl -y
