@@ -147,19 +147,6 @@ func setContentType(r *http.Request, resp *http.Response) {
 		mime = proxySettings.ExtMimeTypes[rext[1:]]
 	}
 
-	if mime == "" {
-		//Finally, just use the default type
-		mime = proxySettings.ExtMimeTypes["default"]
-	}
-
-	// If mime isn't accepted (and an accept header is given), then falsify the mime type
-	accepted := r.Header.Get("Accept")
-	if accepted != "" {
-		if !strings.Contains(accepted, mime) {
-			mime = strings.Split(accepted, ",")[0]
-		}
-	}
-
 	// Set content type header
 	resp.Header.Set("Content-Type", mime)
 }
