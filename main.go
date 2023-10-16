@@ -148,7 +148,9 @@ func setContentType(r *http.Request, resp *http.Response) {
 	}
 
 	// Set content type header
-	resp.Header.Set("Content-Type", mime)
+	if mime != "" {
+		resp.Header.Set("Content-Type", mime)
+	}
 }
 
 func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
@@ -165,7 +167,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 			Path:     "content/" + r.URL.Host + r.URL.Path,
 			RawQuery: r.URL.RawQuery,
 		},
-		Header: make(http.Header),
+		Header: r.Header,
 		Body:   r.Body,
 	}
 
@@ -197,7 +199,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 				Path:     r.URL.Path,
 				RawQuery: r.URL.RawQuery,
 			},
-			Header: make(http.Header),
+			Header: r.Header,
 			Body:   r.Body,
 		}
 		// Copy in a new body reader
