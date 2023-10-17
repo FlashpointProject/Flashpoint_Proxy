@@ -131,8 +131,8 @@ func setContentType(r *http.Request, resp *http.Response) {
 		return
 	}
 
-	rext := filepath.Ext(resp.Header.Get("ZIPSVR_FILENAME"))
-	ext := filepath.Ext(r.URL.Path)
+	rext := strings.ToLower(filepath.Ext(resp.Header.Get("ZIPSVR_FILENAME")))
+	ext := strings.ToLower(filepath.Ext(r.URL.Path))
 	mime := ""
 
 	// If the request already has an extension, fetch the mime via extension
