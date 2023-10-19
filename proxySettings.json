@@ -3,7 +3,6 @@
   "legacyCGIBINPath": "../Legacy/cgi-bin/",
   "legacyPHPPath": "../Legacy/",
   "overridePaths": [
-    "../Legacy/htdocs/content/",
     "../Legacy/middleware_overrides/"
   ],
   "apiPrefix": "fpProxy/api/",
