@@ -156,7 +156,6 @@ func setContentType(r *http.Request, resp *http.Response) {
 func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 	// Remove port from host if exists (old apps don't clean it before sending requests?)
 	r.URL.Host = strings.Split(r.URL.Host, ":")[0]
-	fmt.Printf("Proxy Request: %s\n", r.URL.Host+r.URL.Path)
 
 	// Copy the original request
 	gamezipRequest := &http.Request{
@@ -186,6 +185,8 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 
 	if proxyResp.StatusCode < 400 {
 		fmt.Printf("\tServing from Zip...\n")
+	} else if proxyResp.StatusCode >= 500 {
+		fmt.Println("Gamezip Server Error: ", proxyResp.StatusCode)
 	}
 
 	// Check Legacy
