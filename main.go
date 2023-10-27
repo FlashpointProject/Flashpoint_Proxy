@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -44,6 +45,7 @@ type ProxySettings struct {
 	LegacyPHPPath      string            `json:"legacyPHPPath"`
 	LegacyUsePHPServer bool              `json:"legacyUsePHPServer"`
 	LegacyHTDOCSPath   string            `json:"legacyHTDOCSPath"`
+	RootPath           string            `json:"rootPath"`
 	LegacyCGIBINPath   string            `json:"legacyCGIBINPath"`
 	PhpCgiPath         string            `json:"phpCgiPath"`
 	OverridePaths      []string          `json:"overridePaths"`
@@ -81,19 +83,25 @@ func init() {
 	proxyPort := flag.Int("proxyPort", 22500, "proxy listen port")
 	serverHTTPPort := flag.Int("serverHttpPort", 22501, "zip server http listen port")
 	serverHTTPSPort := flag.Int("serverHttpsPort", 22502, "zip server https listen port")
-	gameRootPath := flag.String("gameRootPath", "D:\\Flashpoint 11 Infinity\\Data\\Games", "This is the path where to find the zips")
+	gameRootPath := flag.String("gameRootPath", "D:\\Flashpoint\\Data\\Games", "This is the path where to find the zips")
+	rootPath := flag.String("rootPath", "D:\\Flashpoint", "The path that other relative paths use as a base")
 	apiPrefix := flag.String("apiPrefix", "/fpProxy/api", "apiPrefix is used to prefix any API call.")
 	useMad4FP := flag.Bool("UseMad4FP", false, "flag to turn on/off Mad4FP.")
 	legacyGoPort := flag.Int("legacyGoPort", 22601, "port that the legacy GO server listens on")
 	legacyPHPPort := flag.Int("legacyPHPPort", 22600, "port that the legacy PHP server listens on")
-	legacyPHPPath := flag.String("legacyPHPPath", "D:\\Flashpoint 11 Infinity\\Legacy", "This is the path for HTDOCS")
+	legacyPHPPath := flag.String("legacyPHPPath", "D:\\Flashpoint\\Legacy", "This is the path for HTDOCS")
 	legacyUsePHPServer := flag.Bool("legacyUsePHPServer", true, "This will run the original PHP script in parallel")
-	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", "D:\\Flashpoint 11 Infinity\\Legacy\\htdocs", "This is the path for HTDOCS")
-	phpCgiPath := flag.String("phpCgiPath", "D:\\Flashpoint 11 Infinity\\Legacy\\php-cgi.exe", "Path to PHP CGI executable")
+	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", "D:\\Flashpoint\\Legacy\\htdocs", "This is the path for HTDOCS")
+	phpCgiPath := flag.String("phpCgiPath", "D:\\Flashpoint\\Legacy\\php-cgi.exe", "Path to PHP CGI executable")
 	flag.Parse()
 
 	//Apply all of the flags to the settings
 	proxySettings.VerboseLogging = *verboseLogging
+	proxySettings.RootPath, err = filepath.Abs(strings.Trim(*rootPath, "\""))
+	if err != nil {
+		fmt.Printf("Failed to get absolute game root path")
+		return
+	}
 	proxySettings.ProxyPort = strconv.Itoa(*proxyPort)
 	proxySettings.ServerHTTPPort = strconv.Itoa(*serverHTTPPort)
 	proxySettings.ServerHTTPSPort = strconv.Itoa(*serverHTTPSPort)
@@ -103,17 +111,26 @@ func init() {
 	proxySettings.LegacyPHPPort = strconv.Itoa(*legacyPHPPort)
 	proxySettings.LegacyPHPPath = *legacyPHPPath
 	proxySettings.LegacyUsePHPServer = *legacyUsePHPServer
-	proxySettings.LegacyHTDOCSPath = *legacyHTDOCSPath
-	proxySettings.GameRootPath, err = filepath.Abs(strings.Trim(*gameRootPath, "\""))
+	proxySettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(proxySettings.RootPath, strings.Trim(*legacyHTDOCSPath, "\"")))
+	if err != nil {
+		fmt.Printf("Failed to get absolute htdocs path")
+		return
+	}
+	proxySettings.GameRootPath, err = filepath.Abs(path.Join(proxySettings.RootPath, strings.Trim(*gameRootPath, "\"")))
 	if err != nil {
 		fmt.Printf("Failed to get absolute game root path")
 		return
 	}
-	proxySettings.PhpCgiPath, err = filepath.Abs(strings.Trim(*phpCgiPath, "\""))
+	proxySettings.PhpCgiPath, err = filepath.Abs(path.Join(proxySettings.RootPath, strings.Trim(*phpCgiPath, "\"")))
 	if err != nil {
 		fmt.Printf("Failed to get absolute php cgi path")
 		return
 	}
+
+	// Print out all path settings
+	fmt.Printf("Root Path: %s\n", proxySettings.RootPath)
+	fmt.Printf("PHP CGI Path: %s\n", proxySettings.PhpCgiPath)
+	fmt.Printf("Legacy HTDOCS Path: %s\n", proxySettings.LegacyHTDOCSPath)
 
 	//Setup the proxy.
 	proxy = goproxy.NewProxyHttpServer()
@@ -183,9 +200,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 	proxyReq.Header = gamezipRequest.Header
 	proxyResp, err := client.Do(proxyReq)
 
-	if proxyResp.StatusCode < 400 {
-		fmt.Printf("\tServing from Zip...\n")
-	} else if proxyResp.StatusCode >= 500 {
+	if proxyResp.StatusCode >= 500 {
 		fmt.Println("Gamezip Server Error: ", proxyResp.StatusCode)
 	}
 
@@ -288,11 +303,12 @@ func main() {
 				proxySettings.PhpCgiPath,
 				proxySettings.ExtMimeTypes,
 				proxySettings.OverridePaths,
+				proxySettings.LegacyHTDOCSPath,
 			),
 		))
 	}()
 
-	/** THIS SOFTWARE DOES NOT CONTROL THE PHP ROUTER LIFECYCLE */
+	/** DISABLED WHILE NOT FUNCTIONING */
 	// //Start Legacy server
 	// go func() {
 	// 	if proxySettings.LegacyUsePHPServer {
@@ -302,7 +318,7 @@ func main() {
 	// 	}
 	// }()
 
-	//Start PROXY server
+	//Start proxy server
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+proxySettings.ProxyPort, http.AllowQuerySemicolons(proxy)))
 }
 

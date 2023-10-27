@@ -1,7 +1,8 @@
 {
-  "legacyHTDOCSPath": "../Legacy/htdocs/",
-  "legacyCGIBINPath": "../Legacy/cgi-bin/",
-  "legacyPHPPath": "../Legacy/",
+  "legacyHTDOCSPath": "Legacy/htdocs/",
+  "legacyCGIBINPath": "Legacy/cgi-bin/",
+  "legacyPHPPath": "Legacy/",
+  "rootPath": "../",
   "overridePaths": [
     "../Legacy/middleware_overrides/"
   ],
