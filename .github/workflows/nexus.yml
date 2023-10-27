@@ -27,7 +27,7 @@ jobs:
           GOARCH: "386"
         run: go build -o "Flashpoint Game Server.exe" .
       - name: Package
-        run: zip Server.zip "./Flashpoint Game Server.exe" ./proxySettings.json ./fpGameServerCA.crt ./fpGameServerCA.key
+        run: zip Server.zip "./Flashpoint Game Server.exe" ./proxySettings.json
       - name: Generate Metadata
         run: |
           sudo apt install libarchive-zip-perl -y

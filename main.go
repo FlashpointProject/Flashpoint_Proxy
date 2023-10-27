@@ -266,10 +266,30 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 func main() {
 	// To create CA cert, refer to https://wiki.mozilla.org/SecurityEngineering/x509Certs#Self_Signed_Certs
 	// Replace CA in GoProxy
-	certFile := "fpGameServerCA.crt"
-	keyFile := "fpGameServerCA.key"
+	certData := []byte(`-----BEGIN CERTIFICATE-----
+MIICJDCCAcsCFFCWJV/hBHpY18k/14yUbDA6V/TTMAoGCCqGSM49BAMCMIGTMQsw
+CQYDVQQGEwJVUzETMBEGA1UECAwKU29tZS1TdGF0ZTEoMCYGA1UECgwfRmxhc2hw
+b2ludCBQcm94eSBVbnRydXN0ZWQgTUlUTTEoMCYGA1UECwwfRmxhc2hwb2ludCBQ
+cm94eSBVbnRydXN0ZWQgTUlUTTEbMBkGA1UEAwwSZnBwcm94eS5sb2NhbC5zaXRl
+MCAXDTIzMTAxNDEzNTQxNVoYDzIxMjMwOTIwMTM1NDE1WjCBkzELMAkGA1UEBhMC
+VVMxEzARBgNVBAgMClNvbWUtU3RhdGUxKDAmBgNVBAoMH0ZsYXNocG9pbnQgUHJv
+eHkgVW50cnVzdGVkIE1JVE0xKDAmBgNVBAsMH0ZsYXNocG9pbnQgUHJveHkgVW50
+cnVzdGVkIE1JVE0xGzAZBgNVBAMMEmZwcHJveHkubG9jYWwuc2l0ZTBZMBMGByqG
+SM49AgEGCCqGSM49AwEHA0IABDOkMb4Fb+waYfEXg5OszAyjNqcp8PLTqSC2fcfC
+gX3Wqgvq4Vf46F4FViDKyo+E+6fOm3MauI3Vg2FGKUXf9jowCgYIKoZIzj0EAwID
+RwAwRAIgHyjrkkCwuOQm5JO5SKeH3Om8dQm6m6a+1k5max2RqakCICQRzrm0ERo4
+siAXSthMrOdDignP/cM10AcBe/J00Vw8
+-----END CERTIFICATE-----`)
+	keyData := []byte(`-----BEGIN EC PARAMETERS-----
+BggqhkjOPQMBBw==
+-----END EC PARAMETERS-----
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIGfj1mtowe1WiAMA3mK1VjgXV1lgUkliUxnk6lr5y/g5oAoGCCqGSM49
+AwEHoUQDQgAEM6QxvgVv7Bph8ReDk6zMDKM2pynw8tOpILZ9x8KBfdaqC+rhV/jo
+XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
+-----END EC PRIVATE KEY-----`)
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := tls.X509KeyPair(certData, keyData)
 	if err != nil {
 		panic(err)
 	}
