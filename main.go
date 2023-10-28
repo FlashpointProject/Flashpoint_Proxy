@@ -157,7 +157,7 @@ func setContentType(r *http.Request, resp *http.Response) {
 	if ext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[ext[1:]])
 		mime = proxySettings.ExtMimeTypes[ext[1:]]
-		if mime != "" {
+		if mime != "" && len(ext) > 1 {
 			resp.Header.Set("Content-Type", mime)
 			e := ext[1:]
 			// If pre-compressed set encoding type
@@ -174,9 +174,9 @@ func setContentType(r *http.Request, resp *http.Response) {
 	if mime == "" && rext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[rext[1:]])
 		mime = proxySettings.ExtMimeTypes[rext[1:]]
-		if mime != "" {
+		if mime != "" && len(rext) > 1 {
 			resp.Header.Set("Content-Type", mime)
-			e := ext[1:]
+			e := rext[1:]
 			// If pre-compressed set encoding type
 			for _, element := range proxySettings.ExtGzippeddTypes {
 				if element == e {
