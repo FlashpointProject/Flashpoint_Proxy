@@ -39,6 +39,7 @@ type ProxySettings struct {
 	ExtScriptTypes     []string          `json:"extScriptTypes"`
 	ExtIndexTypes      []string          `json:"extIndexTypes"`
 	ExtMimeTypes       map[string]string `json:"extMimeTypes"`
+	ExtGzippeddTypes   []string          `json:"extGzippedTypes"`
 	UseMad4FP          bool              `json:"useMad4FP"`
 	LegacyGoPort       string            `json:"legacyGoPort"`
 	LegacyPHPPort      string            `json:"legacyPHPPort"`
@@ -156,12 +157,34 @@ func setContentType(r *http.Request, resp *http.Response) {
 	if ext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[ext[1:]])
 		mime = proxySettings.ExtMimeTypes[ext[1:]]
+		if mime != "" {
+			resp.Header.Set("Content-Type", mime)
+			e := ext[1:]
+			// If pre-compressed set encoding type
+			for _, element := range proxySettings.ExtGzippeddTypes {
+				if element == e {
+					resp.Header.Set("Content-Encoding", "gzip")
+					break // String found, no need to continue iterating
+				}
+			}
+		}
 	}
 
 	// If the response has an extension, try and fetch the mime for that via extension
 	if mime == "" && rext != "" {
 		resp.Header.Set("Content-Type", proxySettings.ExtMimeTypes[rext[1:]])
 		mime = proxySettings.ExtMimeTypes[rext[1:]]
+		if mime != "" {
+			resp.Header.Set("Content-Type", mime)
+			e := ext[1:]
+			// If pre-compressed set encoding type
+			for _, element := range proxySettings.ExtGzippeddTypes {
+				if element == e {
+					resp.Header.Set("Content-Encoding", "gzip")
+					break // String found, no need to continue iterating
+				}
+			}
+		}
 	}
 
 	// Set content type header

@@ -28,6 +28,9 @@
     "jsp",
     "jspx"
   ],
+  "extGzippedTypes": [
+    "svgz"
+  ],
   "extMimeTypes": {
     "aab": "application/x-authorware-bin",
     "aam": "application/x-authorware-map",
@@ -131,6 +134,8 @@
     "spl": "application/futuresplash",
     "sts": "application/x-squeak-source",
     "svf": "vector/x-svf",
+    "svg": "image/svg+xml",
+    "svgz": "image/svg+xml",
     "svr": "x-world/x-svr",
     "swa": "application/x-director",
     "swf": "application/x-shockwave-flash",
