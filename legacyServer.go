@@ -2,281 +2,240 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
-	"github.com/elazarl/goproxy"
+	"github.com/krum110487/zipfs"
 )
 
-var legacyProxy *goproxy.ProxyHttpServer
+// Tries to serve a legacy file if available
+func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 
-func init() {
-	legacyProxy = goproxy.NewProxyHttpServer()
-	legacyProxy.Verbose = proxySettings.VerboseLogging
-}
+	// @TODO PERFORM REQUEST MODIFICATION HERE
 
-func getLegacyProxy() *goproxy.ProxyHttpServer {
-	legacyProxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		var localFile *os.File = nil
+	relPath := filepath.ToSlash(path.Join(r.URL.Host, r.URL.Path))
+	relPathWithQuery := filepath.ToSlash(path.Join(r.URL.Host, r.URL.Path+url.PathEscape("?"+r.URL.RawQuery)))
+	hasQuery := r.URL.RawQuery != ""
 
-		errResp := goproxy.NewResponse(r, goproxy.ContentTypeText, http.StatusNotFound, "404 Not Found")
-		reqUrl := *r.URL
-		extensions := []string{".html", ".htm"}
-		legacyHTDOCS := proxySettings.LegacyHTDOCSPath
-		fmt.Printf("Legacy Request Started: %s", reqUrl.String())
-
-		//Normalize the path...
-		newPath := path.Join(reqUrl.Host, reqUrl.Path)
-		fp, err := normalizePath(legacyHTDOCS, newPath, false)
+	// Returns the data from the matching method, finishing the response
+	successCloser := func(reader io.ReadCloser, fileName string, lastModified string) {
+		w.Header().Set("Last-Modified", lastModified)
+		w.Header().Set("ZIPSVR_FILENAME", fileName)
+		size, err := io.Copy(w, reader)
 		if err != nil {
-			//TODO: Throw Error here
-		}
-
-		//Try to open the Local File including the indexes which may exist...
-		localFile, err = openIfExists(fp, extensions)
-		if err == nil {
-			//We found a file, so we can create a response!
-			proxyResp := goproxy.NewResponse(r, goproxy.ContentTypeText, http.StatusOK, "")
-			proxyResp.Header.Set("ZIPSVR_FILENAME", localFile.Name())
-			contents, err := readFile(localFile)
-			if err != nil {
-				return r, errResp
-			}
-			proxyResp.Body = contents
-			return r, proxyResp
-		}
-
-		//Only if Mad4FP is enabled...
-		if proxySettings.UseMad4FP {
-			resp, err := getLiveRemoteFile(legacyHTDOCS, *r)
-			if err != nil {
-				fmt.Printf("Mad4FP failed with \"%s\"", err)
-			}
-			if resp.StatusCode < 400 {
-				return r, resp
-			}
+			fmt.Printf("Error copying file to response: %s\n", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
-			efp := proxySettings.ExternalFilePaths
-			resp, err := getRemoteFile(efp, legacyHTDOCS, extensions, *r)
-			if err != nil {
-				fmt.Printf("getRemoteFile failed with \"%s\"", err)
-			}
-			if resp.StatusCode < 400 {
-				return r, resp
-			}
-		}
-
-		//Return an error if nothing above worked.
-		return r, errResp
-	})
-
-	return legacyProxy
-}
-
-func normalizePath(rootPath string, pathOrURL string, useCWD bool) (string, error) {
-	normPath := ""
-
-	//Step0: Check if path is a URL
-	u, err := url.Parse(pathOrURL)
-	if err == nil && (strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://")) {
-		pathOrURL, _ = url.JoinPath(u.Host, u.Path)
-	}
-
-	//Step1: Normalize all of the slashes
-	pathOrURL = strings.Replace(pathOrURL, "\\", "/", -1)
-	if rootPath != "" {
-		rootPath = strings.Replace(rootPath, "\\", "/", -1)
-	}
-
-	//Step2: Join the path
-	if !filepath.IsAbs(pathOrURL) {
-		normPath = filepath.Join(rootPath, pathOrURL)
-	} else {
-		return pathOrURL, nil
-	}
-
-	//Step4: Check if absolute
-	if !filepath.IsAbs(normPath) {
-		rPath, _ := os.Getwd()
-		if !useCWD {
-			rPath, _ = os.Executable()
-		}
-		dir := filepath.Dir(strings.Replace(rPath, "\\", "/", -1))
-		normPath = filepath.Join(dir, normPath)
-	}
-
-	// Clean the path to prevent multiple slashes
-	return filepath.Clean(normPath), nil
-}
-
-func openIfExists(filePath string, indexExts []string) (*os.File, error) {
-	fi, err := os.Stat(filePath)
-	extn := filepath.Ext(filePath)
-
-	//Only do this if the path is found and is a dir OR
-	//path is not found and the extension is blank.
-	if (err == nil && fi.IsDir()) || (err != nil && extn == "") {
-		//Loop through exts and try to find index.
-		for _, ext := range indexExts {
-			indexFilePath := path.Join(filePath, "/index."+ext)
-			fii, inErr := os.Stat(indexFilePath)
-			if inErr != nil {
-				fi = fii
-				break
-			}
-			err = inErr
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+			w.WriteHeader(http.StatusOK)
 		}
 	}
 
-	//Index was not found, path is a valid dir.
-	if fi != nil && fi.IsDir() {
-		return nil, errors.New(fmt.Sprintf("Index cannot be found inside directory %s", filePath))
-	}
+	/** Overview
+	 * Create groups of paths:
+	 * 1. Exact Files
+	 * 2. Directory Index Files
+	 *
+	 * Peform each check in order, checking each group in order within, to find a match:
+	 * 1. Local File
+	 * 2. Online Server
+	 * 3. Special Behaviour (MAD4FP)
+	 */
 
-	//File was found and is NOT a directory, we can serve it.
-	if err == nil {
-		// File exists, open it
-		file, err := os.Open(filePath)
-		if err != nil {
-			return nil, err
+	// Building groups of paths
+
+	// Local = All Paths
+	// Online = All non-override paths
+	// Special = Exact content path only (with index consideration)
+
+	// Override paths
+
+	exactContentPath := path.Join(serverSettings.LegacyHTDOCSPath, "content", relPath)
+	exactFilePaths := []string{}
+	exactOverrideFilePaths := []string{}
+	indexFilePaths := []string{}
+	indexOverrideFilePaths := []string{}
+
+	// 1. Exact Files
+	if hasQuery {
+		for _, override := range serverSettings.LegacyOverridePaths {
+			exactOverrideFilePaths = append(exactOverrideFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, override, relPathWithQuery))
 		}
-
-		return file, nil
-	} else if os.IsNotExist(err) {
-		// File does not exist
-		return nil, err
-	} else {
-		// Some other error occurred
-		return nil, err
+		exactFilePaths = append(exactFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, relPathWithQuery))
 	}
-}
-
-func readFile(file *os.File) (io.ReadCloser, error) {
-	// Get the file size and rewind the file pointer to the beginning
-	size, err := file.Seek(0, io.SeekEnd)
-	if err != nil {
-		return nil, err
+	for _, override := range serverSettings.LegacyOverridePaths {
+		exactOverrideFilePaths = append(exactOverrideFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, override, relPath))
 	}
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
+	exactFilePaths = append(exactFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, relPath))
 
-	// Create a byte slice with the same size as the file
-	contents := make([]byte, size)
-
-	// Read the entire file contents into the byte slice
-	_, err = file.Read(contents)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert the byte slice to an io.ReadCloser object
-	reader := bytes.NewReader(contents)
-	return ioutil.NopCloser(reader), nil
-}
-
-func saveLocalFile(resp *http.Response, localRootDir string, u url.URL) error {
-	// Get the filename from the URL
-	urlPath := path.Join(u.Host, "/", u.Path)
-	localPath, _ := normalizePath(localRootDir, urlPath, false)
-	resp.Header.Set("ZIPSVR_FILENAME", localPath)
-
-	// Get the directory path from the URL and create any missing directories
-	dirPath := filepath.Dir(localPath)
-	err := os.MkdirAll(dirPath, 0755)
-	if err != nil {
-		return err
-	}
-
-	// Create the output file
-	file, err := os.Create(localPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getLiveRemoteFile(localRootDir string, originalRequest http.Request) (*http.Response, error) {
-	return getRemoteFile([]string{}, localRootDir, []string{}, originalRequest)
-}
-
-func requestFileAndSave(client *http.Client, prefix string, localRootDir string, u url.URL, origReq http.Request) (*http.Response, error) {
-	newURL := u.String()
-	if prefix != "" {
-		newURL, _ = url.JoinPath(prefix, u.Host, u.Path)
-	}
-
-	remoteReq, err := http.NewRequest(origReq.Method, newURL, origReq.Body)
-	response, err := client.Do(remoteReq)
-	if err != nil {
-		return nil, err
-	}
-
-	defer response.Body.Close()
-	if response.StatusCode == http.StatusOK {
-		err := saveLocalFile(response, localRootDir, u)
-		if err != nil {
-			return nil, err
+	// 2. Directory Index Files
+	for _, ext := range serverSettings.ExtIndexTypes {
+		for _, override := range serverSettings.LegacyOverridePaths {
+			indexOverrideFilePaths = append(indexOverrideFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, override, relPath, "index."+ext))
 		}
-		return response, nil
+		indexFilePaths = append(indexFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, relPath, "index."+ext))
 	}
 
-	return nil, errors.New("File was not found!")
-}
+	// Try and find a valid file to respond with
 
-func getRemoteFile(urlPrefix []string, localRootDir string, indexExts []string, origReq http.Request) (*http.Response, error) {
-	client := &http.Client{}
-	errResp := goproxy.NewResponse(&origReq, goproxy.ContentTypeText, http.StatusNotFound, "404 Not Found")
-	var extErr error = nil
-
-	//If the prefix is not set, we are going on the LIVE internet!
-	if len(urlPrefix) < 1 {
-		//GOING TO THAT LIVE INTERWEBZ!
-		resp, err := requestFileAndSave(client, "", localRootDir, *origReq.URL, origReq)
-		extErr = err
-		if err == nil {
-			return resp, nil
-		}
-	} else {
-		//Loop through all the given prefixes
-		for _, prefix := range urlPrefix {
-			//Try the Original url with the prefix.
-			resp, err := requestFileAndSave(client, prefix, localRootDir, *origReq.URL, origReq)
-			extErr = err
-			if err == nil {
-				return resp, nil
-			}
-
-			//If the file wasn't found, we append the indexes until it is found.
-			for _, ext := range indexExts {
-				//Generate url from Remote HTDOCS
-				indexURLstr, _ := url.JoinPath(origReq.URL.String(), "/index."+ext)
-				newIndexURL, _ := url.Parse(indexURLstr)
-
-				//Get the files.
-				resp, err := requestFileAndSave(client, prefix, localRootDir, *newIndexURL, origReq)
-				extErr = err
-				if err == nil {
-					return resp, nil
+	// 1. Local File
+	for _, filePath := range append(append(append(exactFilePaths, exactOverrideFilePaths...), indexFilePaths...), indexOverrideFilePaths...) {
+		// Check if file exists
+		stats, err := os.Stat(filePath)
+		if err == nil && !stats.IsDir() {
+			// If it's a PHP file, let CGI handle instead
+			for _, ext := range serverSettings.ExtScriptTypes {
+				if filepath.Ext(filePath) == "."+ext {
+					zipfs.Cgi(w, r, serverSettings.PhpCgiPath, filePath)
+					return
 				}
 			}
+			// File exists and is static, serve
+			f, err := os.Open(filePath)
+			if err != nil {
+				// File exists but failed to open, server error
+				fmt.Printf("[Legacy] Error reading file '%s': %s\n", filePath, err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer f.Close()
+			fmt.Printf("[Legacy] Serving exact file: %s\n", filepath.ToSlash(filePath))
+			successCloser(io.NopCloser(f), filePath, stats.ModTime().Format(time.RFC1123))
+			return
 		}
 	}
-	return errResp, extErr
+
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	// 2. Online Server
+	if serverSettings.UseInfinityServer {
+		serverUrl := strings.TrimRight(serverSettings.InfinityServerURL, "/")
+		for _, filePath := range append(exactFilePaths, indexFilePaths...) {
+			// Create a new request to the online server
+			relPath, err := filepath.Rel(serverSettings.LegacyHTDOCSPath, filePath)
+			if err != nil {
+				fmt.Printf("[Legacy] Error getting relative path for Infinity request: %s\n", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			url := serverUrl + "/" + strings.ReplaceAll(relPath, string([]rune{'\\'}), "/")
+			liveReq, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				fmt.Printf("[Legacy] Error creating Infinity request: %s\n", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			liveReq.Header.Set("User-Agent", "Flashpoint Game Server")
+			// Perform request
+			resp, err := DoWebRequest(liveReq, client, 0)
+			// If 200, serve and save
+			if err == nil {
+				serveLiveResponse(w, resp, filePath, successCloser, "Infinity")
+				return
+			}
+		}
+	}
+
+	// 3. Special Behaviour (MAD4FP)
+	if serverSettings.UseMad4FP {
+		// Clone the entire request, to keep headers intact for better scraping
+		liveReq := r.Clone(r.Context())
+		liveReq.Header.Set("User-Agent", "Flashpoint Game Server MAD4FP")
+		// Perform request
+		resp, err := DoWebRequest(liveReq, client, 0)
+		// If 200, serve and save
+		if err == nil {
+			serveLiveResponse(w, resp, exactContentPath, successCloser, "MAD4FP")
+			return
+		}
+	}
+
+	// No response from any method, assume not found
+	http.NotFound(w, r)
+}
+
+// Serves a response from a live server, and saves the response body to the originally requested file
+func serveLiveResponse(w http.ResponseWriter, resp *http.Response, filePath string, successCloser func(io.ReadCloser, string, string), sourceName string) {
+	defer resp.Body.Close()
+	lastModified := resp.Header.Get("Last-Modified")
+	// Duplicate response body
+	contents, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("[Legacy] Error reading %s response body: %s\n", sourceName, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Save file
+	err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
+	if err != nil {
+		fmt.Printf("[Legacy] Error saving %s response, cannot make directory: %s\n", sourceName, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Printf("[Legacy] Error saving %s response, cannot create file: %s\n", sourceName, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	_, err = io.Copy(file, bytes.NewReader(contents))
+	if err != nil {
+		fmt.Printf("[Legacy] Error saving %s response, cannot write file: %s\n", sourceName, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if resp.Header.Get("Last-Modified") != "" {
+		// Convert header to real time
+		modifiedTime, err := time.Parse(time.RFC1123, lastModified)
+		if err == nil {
+			// Date converted successfuly, set time on file and return with response
+			err = os.Chtimes(filePath, time.Now(), modifiedTime)
+			if err != nil {
+				fmt.Printf("[Legacy] Error saving %s response, cannot set modified time: %s\n", sourceName, err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			fmt.Printf("[Legacy] Serving %s file: %s\n", sourceName, filepath.ToSlash(filePath))
+			successCloser(io.NopCloser(bytes.NewReader(contents)), filePath, lastModified)
+			return
+		}
+	}
+	// No last modified found, just use current time
+	successCloser(io.NopCloser(bytes.NewReader(contents)), filePath, time.Now().Format(time.RFC1123))
+}
+
+// Treats non-200 responses as errors, and handles 429 responses with a retry timer
+func DoWebRequest(r *http.Request, client *http.Client, depth int) (*http.Response, error) {
+	resp, err := client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 429 {
+		if depth > 3 {
+			return resp, fmt.Errorf("Too many 429 responses")
+		}
+		// Rate limited, wait and try again
+		timeToSleep := resp.Header.Get("Retry-After")
+		timeToSleepInt, err := strconv.Atoi(timeToSleep)
+		if err != nil {
+			timeToSleepInt = 2
+		}
+		time.Sleep(time.Duration(timeToSleepInt) * time.Second)
+		return DoWebRequest(r, client, depth+1)
+	}
+	if resp.StatusCode == 200 {
+		return resp, nil
+	}
+	return resp, fmt.Errorf(resp.Status)
 }
