@@ -38,6 +38,7 @@ var testServerSettings = ServerSettings{
 	ExtIndexTypes: []string{
 		"htm", "html", "php",
 	},
+	PhpCgiPath: `J:\Data\Flashpoint\Legacy\php-cgi.exe`,
 }
 
 func setup(settings *ServerSettings) {
@@ -248,6 +249,39 @@ func TestServeLegacy200Index(t *testing.T) {
 	}
 }
 
+func TestServeLegacy200Script(t *testing.T) {
+	setup(&testServerSettings)
+
+	// Write a test file
+	testStr := "success"
+	testData := []byte(fmt.Sprintf("<?php echo \"%s\"; ?>", testStr))
+	testFile := path.Join(testServerSettings.LegacyHTDOCSPath, "example.com", "index.php")
+	// Make directory path
+	err := os.MkdirAll(path.Dir(testFile), os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+	err = os.WriteFile(testFile, testData, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+
+	headers := &http.Header{}
+	headers.Set("Content-Length", strconv.Itoa(len(testStr)))
+	test := &legacyServerTest{
+		request: makeNewRequest("GET", "http://example.com/index.php"),
+		response: &legacyServerTestResponse{
+			statusCode: http.StatusOK,
+			headers:    headers,
+		},
+	}
+
+	err = test.run()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestServeLegacyDisabledOnline(t *testing.T) {
 	setup(&testServerSettings)
 
@@ -278,6 +312,26 @@ func TestServeLegacyOnline200(t *testing.T) {
 			statusCode: http.StatusOK,
 			savedFile:  &savedFile,
 			headers:    headers,
+		},
+	}
+
+	err := test.run()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestServeLegacyOnline200Index(t *testing.T) {
+	settings := testServerSettings
+	settings.UseInfinityServer = true
+	setup(&settings)
+
+	savedFile := path.Join(settings.LegacyHTDOCSPath, "kongregate.com", "ChuckTheSheep", "index.htm")
+	test := &legacyServerTest{
+		request: makeNewRequest("GET", "http://kongregate.com/ChuckTheSheep/"),
+		response: &legacyServerTestResponse{
+			statusCode: http.StatusOK,
+			savedFile:  &savedFile,
 		},
 	}
 

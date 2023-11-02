@@ -94,6 +94,7 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 			// If it's a PHP file, let CGI handle instead
 			for _, ext := range serverSettings.ExtScriptTypes {
 				if filepath.Ext(filePath) == "."+ext {
+					fmt.Printf("[Legacy] Executing script file: %s\n", filepath.ToSlash(filePath))
 					zipfs.Cgi(w, r, serverSettings.PhpCgiPath, filePath)
 					return
 				}
@@ -121,6 +122,10 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 	if serverSettings.UseInfinityServer {
 		serverUrl := strings.TrimRight(serverSettings.InfinityServerURL, "/")
 		for _, filePath := range append(exactFilePaths, indexFilePaths...) {
+			// Do not attempt to run server side scripts
+			if isScriptFile(filePath) {
+				continue
+			}
 			// Create a new request to the online server
 			relPath, err := filepath.Rel(serverSettings.LegacyHTDOCSPath, filePath)
 			if err != nil {
@@ -148,15 +153,18 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Special Behaviour (MAD4FP)
 	if serverSettings.UseMad4FP {
-		// Clone the entire request, to keep headers intact for better scraping
-		liveReq := r.Clone(r.Context())
-		liveReq.Header.Set("User-Agent", "Flashpoint Game Server MAD4FP")
-		// Perform request
-		resp, err := DoWebRequest(liveReq, client, 0)
-		// If 200, serve and save
-		if err == nil {
-			serveLiveResponse(w, resp, exactContentPath, successCloser, "MAD4FP")
-			return
+		// Do not attempt to run server side scripts
+		if !isScriptUrl(r.URL) {
+			// Clone the entire request, to keep headers intact for better scraping
+			liveReq := r.Clone(r.Context())
+			liveReq.Header.Set("User-Agent", "Flashpoint Game Server MAD4FP")
+			// Perform request
+			resp, err := DoWebRequest(liveReq, client, 0)
+			// If 200, serve and save
+			if err == nil {
+				serveLiveResponse(w, resp, exactContentPath, successCloser, "MAD4FP")
+				return
+			}
 		}
 	}
 
@@ -238,4 +246,22 @@ func DoWebRequest(r *http.Request, client *http.Client, depth int) (*http.Respon
 		return resp, nil
 	}
 	return resp, fmt.Errorf(resp.Status)
+}
+
+func isScriptFile(filePath string) bool {
+	for _, ext := range serverSettings.ExtScriptTypes {
+		if filepath.Ext(filePath) == "."+ext {
+			return true
+		}
+	}
+	return false
+}
+
+func isScriptUrl(u *url.URL) bool {
+	for _, ext := range serverSettings.ExtScriptTypes {
+		if filepath.Ext(u.Path) == "."+ext {
+			return true
+		}
+	}
+	return false
 }
