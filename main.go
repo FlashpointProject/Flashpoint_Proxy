@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FlashpointProject/zipfs"
 	"github.com/elazarl/goproxy"
-	"github.com/krum110487/zipfs"
 )
 
 type ServerSettings struct {
