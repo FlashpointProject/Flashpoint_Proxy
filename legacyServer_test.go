@@ -32,6 +32,7 @@ var testServerSettings = ServerSettings{
 	UseInfinityServer: false,
 	InfinityServerURL: "https://infinity.unstable.life/Flashpoint/Legacy/htdocs/",
 	LegacyHTDOCSPath:  "",
+	LegacyCGIBINPath:  "",
 	ExtScriptTypes: []string{
 		"php",
 	},
@@ -50,6 +51,17 @@ func setup(settings *ServerSettings) {
 		}
 		testServerSettings.LegacyHTDOCSPath = path.Join(cwd, "testdata", "htdocs")
 		settings.LegacyHTDOCSPath = testServerSettings.LegacyHTDOCSPath
+		testServerSettings.LegacyCGIBINPath = path.Join(cwd, "testdata", "cgi-bin")
+		settings.LegacyCGIBINPath = testServerSettings.LegacyCGIBINPath
+		// Create directories if missing
+		err = os.MkdirAll(testServerSettings.LegacyHTDOCSPath, os.ModePerm)
+		if err != nil {
+			panic(err)
+		}
+		err = os.MkdirAll(testServerSettings.LegacyCGIBINPath, os.ModePerm)
+		if err != nil {
+			panic(err)
+		}
 	}
 	// Cleanup and remake htdocs
 	err := os.RemoveAll(testServerSettings.LegacyHTDOCSPath)
@@ -255,7 +267,7 @@ func TestServeLegacy200Script(t *testing.T) {
 	// Write a test file
 	testStr := "success"
 	testData := []byte(fmt.Sprintf("<?php echo \"%s\"; ?>", testStr))
-	testFile := path.Join(testServerSettings.LegacyHTDOCSPath, "example.com", "index.php")
+	testFile := path.Join(testServerSettings.LegacyCGIBINPath, "example.com", "index.php")
 	// Make directory path
 	err := os.MkdirAll(path.Dir(testFile), os.ModePerm)
 	if err != nil {

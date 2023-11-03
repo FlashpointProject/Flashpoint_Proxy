@@ -76,6 +76,14 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 	}
 	exactFilePaths = append(exactFilePaths, path.Join(serverSettings.LegacyHTDOCSPath, relPath))
 
+	// CGI bin for scripts
+	if isScriptUrl(r.URL) {
+		if hasQuery {
+			exactFilePaths = append(exactFilePaths, path.Join(serverSettings.LegacyCGIBINPath, relPathWithQuery))
+		}
+		exactFilePaths = append(exactFilePaths, path.Join(serverSettings.LegacyCGIBINPath, relPath))
+	}
+
 	// 2. Directory Index Files
 	for _, ext := range serverSettings.ExtIndexTypes {
 		for _, override := range serverSettings.LegacyOverridePaths {
