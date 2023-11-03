@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -80,15 +81,17 @@ func initServer() {
 	verboseLogging := flag.Bool("v", false, "should every proxy request be logged to stdout")
 	proxyPort := flag.Int("proxyPort", 22500, "proxy listen port")
 	serverHTTPPort := flag.Int("serverHttpPort", 22501, "zip server http listen port")
-	gameRootPath := flag.String("gameRootPath", "D:\\Flashpoint\\Data\\Games", "This is the path where to find the zips")
+	gameRootPath := flag.String("gameRootPath", serverSettings.GameRootPath, "This is the path where to find the zips")
 	rootPath := flag.String("rootPath", "D:\\Flashpoint", "The path that other relative paths use as a base")
 	apiPrefix := flag.String("apiPrefix", "/fpProxy/api", "apiPrefix is used to prefix any API call.")
 	useMad4FP := flag.Bool("UseMad4FP", false, "flag to turn on/off Mad4FP.")
 	externalLegacyPort := flag.String("externalLegacyPort", "22600", "The port that the external legacy server is running on (if handling legacy is disabled).")
-	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", "D:\\Flashpoint\\Legacy\\htdocs", "This is the path for HTDOCS")
-	phpCgiPath := flag.String("phpCgiPath", "D:\\Flashpoint\\Legacy\\php-cgi.exe", "Path to PHP CGI executable")
+	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", serverSettings.LegacyHTDOCSPath, "This is the path for HTDOCS")
+	phpCgiPath := flag.String("phpCgiPath", serverSettings.PhpCgiPath, "Path to PHP CGI executable")
 	useInfinityServer := flag.Bool("useInfinityServer", false, "Whether to use the infinity server or not")
-	infinityServerURL := flag.String("infinityServerURL", "https://example.com/", "The URL of the infinity server")
+	infinityServerURL := flag.String("infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
+	legacyCGIBINPath := flag.String("legacyCGIBINPath", serverSettings.LegacyCGIBINPath, "This is the path for CGI-BIN")
+	handleLegacyRequests := flag.Bool("handleLegacyRequests", false, "Whether to handle legacy requests internally (true) or externally (false)")
 
 	flag.Parse()
 
@@ -104,6 +107,11 @@ func initServer() {
 	serverSettings.ApiPrefix = *apiPrefix
 	serverSettings.UseMad4FP = *useMad4FP
 	serverSettings.ExternalLegacyPort = *externalLegacyPort
+	serverSettings.LegacyCGIBINPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyCGIBINPath, "\"")))
+	if err != nil {
+		fmt.Printf("Failed to get absolute cgi-bin path")
+		return
+	}
 	serverSettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyHTDOCSPath, "\"")))
 	if err != nil {
 		fmt.Printf("Failed to get absolute htdocs path")
@@ -121,11 +129,14 @@ func initServer() {
 	}
 	serverSettings.UseInfinityServer = *useInfinityServer
 	serverSettings.InfinityServerURL = *infinityServerURL
+	serverSettings.HandleLegacyRequests = *handleLegacyRequests
 
 	// Print out all path settings
 	fmt.Printf("Root Path: %s\n", serverSettings.RootPath)
 	fmt.Printf("PHP CGI Path: %s\n", serverSettings.PhpCgiPath)
 	fmt.Printf("Legacy HTDOCS Path: %s\n", serverSettings.LegacyHTDOCSPath)
+	fmt.Printf("Legacy CGI BIN Path: %s\n", serverSettings.LegacyCGIBINPath)
+	fmt.Printf("Games Path: %s\n", serverSettings.GameRootPath)
 
 	//Setup the proxy.
 	proxy = goproxy.NewProxyHttpServer()
@@ -188,6 +199,8 @@ func setContentType(r *http.Request, resp *http.Response) {
 func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 	// Remove port from host if exists (old apps don't clean it before sending requests?)
 	r.URL.Host = strings.Split(r.URL.Host, ":")[0]
+	// Clone the body into both requests by reading and making 2 new readers
+	contents, _ := ioutil.ReadAll(r.Body)
 
 	// Copy the original request
 	gamezipRequest := &http.Request{
@@ -199,12 +212,9 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 			RawQuery: r.URL.RawQuery,
 		},
 		Header: r.Header,
-		Body:   r.Body,
+		Body:   nil,
 	}
-
-	// Clone the body into both requests by reading and making 2 new readers
-	contents, _ := ioutil.ReadAll(r.Body)
-	gamezipRequest.Body = ioutil.NopCloser(bytes.NewReader(contents))
+	gamezipRequest.Body = io.NopCloser(bytes.NewReader(contents))
 
 	// Make the request to the zip server.
 	client := &http.Client{}
@@ -231,7 +241,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 				RawQuery: r.URL.RawQuery,
 			},
 			Header: r.Header,
-			Body:   r.Body,
+			Body:   nil,
 		}
 		// Copy in a new body reader
 		legacyRequest.Body = ioutil.NopCloser(bytes.NewReader(contents))
@@ -273,6 +283,8 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 	setContentType(r, proxyResp)
 
 	// Add extra headers
+	proxyResp.Header.Set("Access-Control-Allow-Headers", "*")
+	proxyResp.Header.Set("Access-Control-Allow-Methods", "*")
 	proxyResp.Header.Set("Access-Control-Allow-Origin", "*")
 	// Keep Alive
 	if strings.ToLower(r.Header.Get("Connection")) == "keep-alive" {

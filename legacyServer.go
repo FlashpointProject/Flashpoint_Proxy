@@ -177,6 +177,7 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// No response from any method, assume not found
+	fmt.Printf("[Legacy] 404 Not Found: %s\n", r.URL)
 	http.NotFound(w, r)
 }
 

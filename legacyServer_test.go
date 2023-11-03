@@ -145,7 +145,7 @@ func TestServeLegacy404(t *testing.T) {
 	setup(&testServerSettings)
 
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "https://example.com/404-example"),
+		request: makeNewRequest("GET", "https://example.com/404-example", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusNotFound,
 		},
@@ -176,7 +176,7 @@ func TestServeLegacy200(t *testing.T) {
 	headers := &http.Header{}
 	headers.Set("Content-Length", strconv.Itoa(len(testData)))
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://example.com/test.txt"),
+		request: makeNewRequest("GET", "http://example.com/test.txt", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			headers:    headers,
@@ -216,7 +216,7 @@ func TestServeLegacy200WithQuery(t *testing.T) {
 	headers := &http.Header{}
 	headers.Set("Content-Length", strconv.Itoa(len(testDataQuery)))
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://example.com/test.txt?query=true"),
+		request: makeNewRequest("GET", "http://example.com/test.txt?query=true", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			headers:    headers,
@@ -248,7 +248,7 @@ func TestServeLegacy200Index(t *testing.T) {
 	headers := &http.Header{}
 	headers.Set("Content-Length", strconv.Itoa(len(testData)))
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://example.com/"),
+		request: makeNewRequest("GET", "http://example.com/", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			headers:    headers,
@@ -281,7 +281,7 @@ func TestServeLegacy200Script(t *testing.T) {
 	headers := &http.Header{}
 	headers.Set("Content-Length", strconv.Itoa(len(testStr)))
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://example.com/index.php"),
+		request: makeNewRequest("GET", "http://example.com/index.php", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			headers:    headers,
@@ -294,11 +294,47 @@ func TestServeLegacy200Script(t *testing.T) {
 	}
 }
 
+func TestServeLegacy200ScriptPost(t *testing.T) {
+	setup(&testServerSettings)
+
+	// Write a test file
+	testStr := "success"
+	testData := []byte(`<?php
+	$data = $_POST['data'];
+	echo "$data"; ?>`)
+	testFile := path.Join(testServerSettings.LegacyCGIBINPath, "example.com", "index.php")
+	// Make directory path
+	err := os.MkdirAll(path.Dir(testFile), os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+	err = os.WriteFile(testFile, testData, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+
+	headers := &http.Header{}
+	headers.Set("Content-Length", strconv.Itoa(len(testStr)))
+	test := &legacyServerTest{
+		request: makeNewRequest("POST", "http://example.com/index.php", bytes.NewBuffer([]byte(fmt.Sprintf(`data=%s`, testStr)))),
+		response: &legacyServerTestResponse{
+			statusCode: http.StatusOK,
+			headers:    headers,
+		},
+	}
+	test.request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	err = test.run()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestServeLegacyDisabledOnline(t *testing.T) {
 	setup(&testServerSettings)
 
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://andkon.com/grey/grey.swf"),
+		request: makeNewRequest("GET", "http://andkon.com/grey/grey.swf", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusNotFound,
 		},
@@ -319,7 +355,7 @@ func TestServeLegacyOnline200(t *testing.T) {
 	headers := &http.Header{}
 	headers.Set("Content-Length", "1065015")
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://andkon.com/grey/grey.swf"),
+		request: makeNewRequest("GET", "http://andkon.com/grey/grey.swf", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			savedFile:  &savedFile,
@@ -340,7 +376,7 @@ func TestServeLegacyOnline200Index(t *testing.T) {
 
 	savedFile := path.Join(settings.LegacyHTDOCSPath, "kongregate.com", "ChuckTheSheep", "index.htm")
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://kongregate.com/ChuckTheSheep/"),
+		request: makeNewRequest("GET", "http://kongregate.com/ChuckTheSheep/", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			savedFile:  &savedFile,
@@ -357,7 +393,7 @@ func TestServeLegacyDisabledMad4fp(t *testing.T) {
 	setup(&testServerSettings)
 
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://flashpointarchive.org/images/logo.svg"),
+		request: makeNewRequest("GET", "http://flashpointarchive.org/images/logo.svg", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusNotFound,
 		},
@@ -376,7 +412,7 @@ func TestServeLegacyMad4fp200(t *testing.T) {
 
 	savedFile := path.Join(settings.LegacyHTDOCSPath, "content", "flashpointarchive.org", "images", "logo.svg")
 	test := &legacyServerTest{
-		request: makeNewRequest("GET", "http://flashpointarchive.org/images/logo.svg"),
+		request: makeNewRequest("GET", "http://flashpointarchive.org/images/logo.svg", nil),
 		response: &legacyServerTestResponse{
 			statusCode: http.StatusOK,
 			savedFile:  &savedFile,
@@ -389,11 +425,10 @@ func TestServeLegacyMad4fp200(t *testing.T) {
 	}
 }
 
-func makeNewRequest(method string, url string) *http.Request {
-	request, err := http.NewRequest(method, url, nil)
+func makeNewRequest(method string, url string, body io.Reader) *http.Request {
+	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		panic(err)
 	}
-
 	return request
 }
