@@ -1,8 +1,11 @@
 {
+  "rootPath": "../",
   "legacyHTDOCSPath": "Legacy/htdocs/",
   "legacyCGIBINPath": "Legacy/cgi-bin/",
   "legacyPHPPath": "Legacy/",
-  "rootPath": "../",
+  "gameRootPath": "Data/Games/",
+  "phpCgiPath": "Legacy/php-cgi.exe",
+  "infinityServerURL": "https://infinity.unstable.life/Flashpoint/Legacy/htdocs/",
   "overridePaths": [
     "../Legacy/middleware_overrides/"
   ],
