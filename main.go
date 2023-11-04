@@ -48,6 +48,7 @@ type ServerSettings struct {
 	LegacyOverridePaths  []string          `json:"legacyOverridePaths"`
 	UseInfinityServer    bool              `json:"useInfinityServer"`
 	InfinityServerURL    string            `json:"infinityServerURL"`
+	EnableHttpsProxy     bool              `json:"enableHttpsProxy"`
 }
 
 // ExtApplicationTypes is a map that holds the content types of different file extensions
@@ -92,6 +93,7 @@ func initServer() {
 	infinityServerURL := flag.String("infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
 	legacyCGIBINPath := flag.String("legacyCGIBINPath", serverSettings.LegacyCGIBINPath, "This is the path for CGI-BIN")
 	handleLegacyRequests := flag.Bool("handleLegacyRequests", false, "Whether to handle legacy requests internally (true) or externally (false)")
+	enableHttpsProxy := flag.Bool("enableHttpsProxy", false, "Whether to enable HTTPS proxying or not")
 
 	flag.Parse()
 
@@ -102,6 +104,7 @@ func initServer() {
 		fmt.Printf("Failed to get absolute game root path")
 		return
 	}
+	serverSettings.EnableHttpsProxy = *enableHttpsProxy
 	serverSettings.ProxyPort = strconv.Itoa(*proxyPort)
 	serverSettings.ServerHTTPPort = strconv.Itoa(*serverHTTPPort)
 	serverSettings.ApiPrefix = *apiPrefix
@@ -332,7 +335,11 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 	goproxy.MitmConnect.TLSConfig = goproxy.TLSConfigFromCA(&cert)
 
 	// Handle HTTPS requests (DOES NOT HANDLE HTTP)
-	proxy.OnRequest().HandleConnect(goproxy.AlwaysReject)
+	if serverSettings.EnableHttpsProxy {
+		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	} else {
+		proxy.OnRequest().HandleConnect(goproxy.AlwaysReject)
+	}
 	proxy.OnRequest().HijackConnect(func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {
 		_, resp := handleRequest(req, ctx)
 		err := resp.Write(client)
