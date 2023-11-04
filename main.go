@@ -332,10 +332,13 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 	goproxy.MitmConnect.TLSConfig = goproxy.TLSConfigFromCA(&cert)
 
 	// Handle HTTPS requests (DOES NOT HANDLE HTTP)
-	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	proxy.OnRequest().HandleConnect(goproxy.AlwaysReject)
 	proxy.OnRequest().HijackConnect(func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {
 		_, resp := handleRequest(req, ctx)
-		resp.Write(client)
+		err := resp.Write(client)
+		if err != nil {
+			fmt.Printf("Error writing response to client: %s\n", err)
+		}
 		client.Close()
 	})
 
