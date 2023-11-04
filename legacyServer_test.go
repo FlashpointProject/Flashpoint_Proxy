@@ -294,6 +294,46 @@ func TestServeLegacy200Script(t *testing.T) {
 	}
 }
 
+func TestServeLegacy200Htaccess(t *testing.T) {
+	htaccessData := []byte(`RewriteEngine On
+RewriteRule ^game$ /redirect [R=301,L]`)
+	htaccessFile := path.Join(testServerSettings.LegacyHTDOCSPath, "example.com", ".htaccess")
+	// Make directory path
+	err := os.MkdirAll(path.Dir(htaccessFile), os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+	err = os.WriteFile(htaccessFile, htaccessData, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+
+	testData := []byte("success")
+	testFile := path.Join(testServerSettings.LegacyHTDOCSPath, "example.com", "redirect")
+	// Make directory path
+	err = os.MkdirAll(path.Dir(testFile), os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+	err = os.WriteFile(testFile, testData, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
+
+	test := &legacyServerTest{
+		request: makeNewRequest("GET", "http://example.com/game", nil),
+		response: &legacyServerTestResponse{
+			statusCode: http.StatusOK,
+			body:       testData,
+		},
+	}
+
+	err = test.run()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestServeLegacy200ScriptPost(t *testing.T) {
 	setup(&testServerSettings)
 

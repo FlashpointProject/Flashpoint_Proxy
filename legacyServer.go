@@ -19,9 +19,10 @@ import (
 // Tries to serve a legacy file if available
 func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 
-	// @TODO PERFORM REQUEST MODIFICATION HERE
-
 	relPath := filepath.ToSlash(path.Join(r.URL.Host, r.URL.Path))
+	// @TODO PERFORM REQUEST MODIFICATION HERE
+	// parseHtaccessPath(serverSettings.LegacyHTDOCSPath, filepath.Dir(relPath), w, r)
+
 	relPathWithQuery := filepath.ToSlash(path.Join(r.URL.Host, r.URL.Path+url.PathEscape("?"+r.URL.RawQuery)))
 	hasQuery := r.URL.RawQuery != ""
 
@@ -274,3 +275,48 @@ func isScriptUrl(u *url.URL) bool {
 	}
 	return false
 }
+
+// func parseHtaccessPath(root string, relPath string, w http.ResponseWriter, r *http.Request) error {
+// 	// Go from top to bottom
+// 	fmt.Printf("[Legacy] Parsing htaccess files for path: %s\n", relPath)
+// 	nextDir := relPath
+// 	for {
+// 		if nextDir == "" {
+// 			return nil
+// 		}
+// 		// Find .htaccess file in next directory
+// 		htaccessPath := path.Join(root, nextDir, ".htaccess")
+// 		fmt.Printf("[Legacy] Looking for htaccess file: %s\n", htaccessPath)
+// 		file, err := os.Open(htaccessPath)
+// 		if err != nil && os.IsNotExist(err) {
+// 			return err
+// 		} else {
+// 			fmt.Printf("[Legacy] Found htaccess file: %s\n", htaccessPath)
+// 			contents, err := io.ReadAll(file)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			ast, err := parser.Parse(string(contents))
+
+// 			for _, directive := range ast.Dirs {
+// 				switch directive.Name {
+// 				case "RewriteRule":
+// 					// Expect a split of 3
+// 					if len(directive.Params) != 3 {
+// 						return fmt.Errorf("Invalid RewriteRule directive?")
+// 					}
+// 					src := directive.Params[0]
+// 					dest := directive.Params[1]
+// 					flags := directive.Params[2]
+// 					fmt.Printf("[Legacy] RewriteRule: %s -> %s [%s]\n", src.RawString, dest.RawString, flags.RawString)
+// 					src.Capture([]string{path.Join(r.URL.Host, r.URL.Path)})
+// 					fmt.Printf("[Legacy] var: %s\n", src.VariableName)
+// 					fmt.Printf("[Legacy] ass: %s\n", src.AssignValue)
+// 				default:
+// 				}
+// 			}
+
+// 		}
+// 		nextDir = filepath.Dir(nextDir)
+// 	}
+// }

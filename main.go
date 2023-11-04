@@ -37,7 +37,6 @@ type ServerSettings struct {
 	ExtIndexTypes        []string          `json:"extIndexTypes"`
 	ExtMimeTypes         map[string]string `json:"extMimeTypes"`
 	ExtGzippeddTypes     []string          `json:"extGzippedTypes"`
-	UseMad4FP            bool              `json:"useMad4FP"`
 	HandleLegacyRequests bool              `json:"handleLegacyRequests"`
 	ExternalLegacyPort   string            `json:"externalLegacyPort"`
 	LegacyHTDOCSPath     string            `json:"legacyHTDOCSPath"`
@@ -48,6 +47,7 @@ type ServerSettings struct {
 	LegacyOverridePaths  []string          `json:"legacyOverridePaths"`
 	UseInfinityServer    bool              `json:"useInfinityServer"`
 	InfinityServerURL    string            `json:"infinityServerURL"`
+	UseMad4FP            bool              `json:"useMad4FP"`
 	EnableHttpsProxy     bool              `json:"enableHttpsProxy"`
 }
 
