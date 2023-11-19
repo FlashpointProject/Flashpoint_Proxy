@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -205,7 +204,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 	// Remove port from host if exists (old apps don't clean it before sending requests?)
 	r.URL.Host = strings.Split(r.URL.Host, ":")[0]
 	// Clone the body into both requests by reading and making 2 new readers
-	contents, _ := ioutil.ReadAll(r.Body)
+	contents, _ := io.ReadAll(r.Body)
 
 	// Copy the original request
 	gamezipRequest := &http.Request{
@@ -249,7 +248,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 			Body:   nil,
 		}
 		// Copy in a new body reader
-		legacyRequest.Body = ioutil.NopCloser(bytes.NewReader(contents))
+		legacyRequest.Body = io.NopCloser(bytes.NewReader(contents))
 
 		// Choose which legacy method we're using
 		if serverSettings.HandleLegacyRequests {
