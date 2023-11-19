@@ -56,8 +56,15 @@ var proxy *goproxy.ProxyHttpServer
 var cwd string
 
 func initServer() {
+	//Get the CWD of this application
+	exe, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	cwd = filepath.Dir(exe)
+
 	// Load the content types from the JSON file
-	data, err := os.ReadFile("proxySettings.json")
+	data, err := os.ReadFile(filepath.Join(cwd, "proxySettings.json"))
 	if err != nil {
 		panic(err)
 	}
@@ -67,13 +74,6 @@ func initServer() {
 	if err != nil {
 		panic(err)
 	}
-
-	//Get the CWD of this application
-	exe, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	cwd = strings.ReplaceAll(filepath.Dir(exe), "\\", "/")
 
 	//TODO: Update proxySettings.LegacyHTDOCSPath AND proxySettings.LegacyPHPPath for the default values!
 
