@@ -227,8 +227,11 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 		fmt.Printf("UNHANDLED GAMEZIP ERROR: %s\n", err)
 	}
 	proxyReq.Header = gamezipRequest.Header
-	proxyResp, err := client.Do(proxyReq)
 
+	proxyResp, err := client.Do(proxyReq)
+	if err != nil {
+		fmt.Printf("UNHANDLED GAMEZIP SERVER ERROR: %s\n", err)
+	}
 	if proxyResp.StatusCode >= 500 {
 		fmt.Println("Gamezip Server Error: ", proxyResp.StatusCode)
 	}
