@@ -4,5 +4,6 @@ fpproxy.csr
 Flashpoint Proxy.exe
 Flashpoint Game Server.exe
 fpProxy.exe
+FlashpointGameServer
 testdata/htdocs
 testdata/cgi-bin
