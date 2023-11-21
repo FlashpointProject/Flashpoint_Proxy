@@ -1,16 +1,25 @@
 {
   "rootPath": "../",
-  "legacyHTDOCSPath": "Legacy/htdocs/",
-  "legacyCGIBINPath": "Legacy/cgi-bin/",
+  "gameDataPath": "Data/Games/",
   "legacyPHPPath": "Legacy/",
-  "gameRootPath": "Data/Games/",
-  "phpCgiPath": "Legacy/php-cgi.exe",
+  "legacyPHPCGIPath": "Legacy/php-cgi.exe",
+  "legacyCGIBINPath": "Legacy/cgi-bin/",
+  "legacyHTDOCSPath": "Legacy/htdocs/",
+  "useInfinityServer": false,
   "infinityServerURL": "https://infinity.unstable.life/Flashpoint/Legacy/htdocs/",
+  "handleLegacyRequests": false,
+  "externalLegacyPort": 22600,
+  "proxyPort": 22500,
+  "serverHTTPPort": 22501,
+  "useMad4FP": false,
+  "enableHttpsProxy": false,
+  "allowCrossDomain": true,
+  "verboseLogging": false,
+  "apiPrefix": "fpProxy/api/",
   "overridePaths": [
     "../Legacy/middleware_overrides/"
   ],
-  "apiPrefix": "fpProxy/api/",
-  "allowCrossDomain": true,
+  "legacyOverridePaths": [],
   "externalFilePaths": [
     "http://infinity.unstable.life/Flashpoint/Legacy/htdocs",
     "http://archive.org/download/FP90Data/FP90Data.zip/htdocs"
