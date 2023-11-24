@@ -39,7 +39,7 @@ var testServerSettings = ServerSettings{
 	ExtIndexTypes: []string{
 		"htm", "html", "php",
 	},
-	LegacyPHPCGIPath: `J:\Data\Flashpoint\Legacy\php-cgi.exe`,
+	PhpCgiPath: `J:\Data\Flashpoint\Legacy\php-cgi.exe`,
 }
 
 func setup(settings *ServerSettings) {

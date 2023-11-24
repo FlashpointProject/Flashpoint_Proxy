@@ -104,7 +104,7 @@ func ServeLegacy(w http.ResponseWriter, r *http.Request) {
 			for _, ext := range serverSettings.ExtScriptTypes {
 				if filepath.Ext(filePath) == "."+ext {
 					fmt.Printf("[Legacy] Executing script file: %s\n", filepath.ToSlash(filePath))
-					zipfs.Cgi(w, r, serverSettings.LegacyPHPCGIPath, filePath)
+					zipfs.Cgi(w, r, serverSettings.PhpCgiPath, filePath)
 					return
 				}
 			}

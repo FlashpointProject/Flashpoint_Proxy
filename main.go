@@ -28,9 +28,9 @@ type ServerSettings struct {
 	RootPath             string            `json:"rootPath"`
 	GameDataPath         string            `json:"gameDataPath"`
 	LegacyPHPPath        string            `json:"legacyPHPPath"`
-	LegacyPHPCGIPath     string            `json:"legacyPHPCGIPath"`
 	LegacyCGIBINPath     string            `json:"legacyCGIBINPath"`
 	LegacyHTDOCSPath     string            `json:"legacyHTDOCSPath"`
+	PhpCgiPath           string            `json:"phpCgiPath"`
 	UseInfinityServer    bool              `json:"useInfinityServer"`
 	InfinityServerURL    string            `json:"infinityServerURL"`
 	HandleLegacyRequests bool              `json:"handleLegacyRequests"`
@@ -82,9 +82,9 @@ func initServer() {
 	rootPath := flag.String("rootPath", serverSettings.RootPath, "The path that other relative paths use as a base")
 	gameDataPath := flag.String("gameRootPath", serverSettings.GameDataPath, "This is the path where to find the zips")
 	legacyPHPPath := flag.String("legacyPHPPath", serverSettings.LegacyPHPPath, "This is the path for PHP")
-	legacyPHPCGIPath := flag.String("phpCgiPath", serverSettings.LegacyPHPCGIPath, "Path to PHP CGI executable")
 	legacyCGIBINPath := flag.String("legacyCGIBINPath", serverSettings.LegacyCGIBINPath, "This is the path for CGI-BIN")
 	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", serverSettings.LegacyHTDOCSPath, "This is the path for HTDOCS")
+	phpCgiPath := flag.String("phpCgiPath", serverSettings.PhpCgiPath, "Path to PHP CGI executable")
 	useInfinityServer := flag.Bool("useInfinityServer", serverSettings.UseInfinityServer, "Whether to use the infinity server or not")
 	infinityServerURL := flag.String("infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
 	handleLegacyRequests := flag.Bool("handleLegacyRequests", serverSettings.HandleLegacyRequests, "Whether to handle legacy requests internally (true) or externally (false)")
@@ -115,11 +115,6 @@ func initServer() {
 		fmt.Println("Failed to get absolute PHP path")
 		panic(err)
 	}
-	serverSettings.LegacyPHPCGIPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyPHPCGIPath, string(os.PathSeparator))))
-	if err != nil {
-		fmt.Println("Failed to get absolute PHP CGI path")
-		panic(err)
-	}
 	serverSettings.LegacyCGIBINPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyCGIBINPath, string(os.PathSeparator))))
 	if err != nil {
 		fmt.Println("Failed to get absolute cgi-bin path")
@@ -128,6 +123,11 @@ func initServer() {
 	serverSettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyHTDOCSPath, string(os.PathSeparator))))
 	if err != nil {
 		fmt.Println("Failed to get absolute htdocs path")
+		panic(err)
+	}
+	serverSettings.PhpCgiPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*phpCgiPath, string(os.PathSeparator))))
+	if err != nil {
+		fmt.Println("Failed to get absolute PHP-CGI path")
 		panic(err)
 	}
 	serverSettings.UseInfinityServer = *useInfinityServer
@@ -146,9 +146,9 @@ func initServer() {
 	fmt.Println("Root Path:", serverSettings.RootPath)
 	fmt.Println("Game Data Path:", serverSettings.GameDataPath)
 	fmt.Println("Legacy PHP Path:", serverSettings.LegacyPHPPath)
-	fmt.Println("Legacy PHP-CGI Path:", serverSettings.LegacyPHPCGIPath)
 	fmt.Println("Legacy CGI-BIN Path:", serverSettings.LegacyCGIBINPath)
 	fmt.Println("Legacy HTDOCS Path:", serverSettings.LegacyHTDOCSPath)
+	fmt.Println("PHP-CGI Path:", serverSettings.PhpCgiPath)
 
 	// Setup the proxy
 	proxy = goproxy.NewProxyHttpServer()
@@ -375,7 +375,7 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 				serverSettings.VerboseLogging,
 				serverSettings.ExtIndexTypes,
 				serverSettings.GameDataPath,
-				serverSettings.LegacyPHPCGIPath,
+				serverSettings.PhpCgiPath,
 				serverSettings.ExtMimeTypes,
 				serverSettings.OverridePaths,
 				serverSettings.LegacyHTDOCSPath,
