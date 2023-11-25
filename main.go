@@ -16,7 +16,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,9 +33,9 @@ type ServerSettings struct {
 	UseInfinityServer    bool              `json:"useInfinityServer"`
 	InfinityServerURL    string            `json:"infinityServerURL"`
 	HandleLegacyRequests bool              `json:"handleLegacyRequests"`
-	ExternalLegacyPort   int               `json:"externalLegacyPort"`
-	ProxyPort            int               `json:"proxyPort"`
-	ServerHTTPPort       int               `json:"serverHTTPPort"`
+	ExternalLegacyPort   string            `json:"externalLegacyPort"`
+	ProxyPort            string            `json:"proxyPort"`
+	ServerHTTPPort       string            `json:"serverHTTPPort"`
 	UseMad4FP            bool              `json:"useMad4FP"`
 	EnableHttpsProxy     bool              `json:"enableHttpsProxy"`
 	AllowCrossDomain     bool              `json:"allowCrossDomain"`
@@ -88,9 +87,9 @@ func initServer() {
 	useInfinityServer := flag.Bool("useInfinityServer", serverSettings.UseInfinityServer, "Whether to use the infinity server or not")
 	infinityServerURL := flag.String("infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
 	handleLegacyRequests := flag.Bool("handleLegacyRequests", serverSettings.HandleLegacyRequests, "Whether to handle legacy requests internally (true) or externally (false)")
-	externalLegacyPort := flag.Int("externalLegacyPort", serverSettings.ExternalLegacyPort, "The port that the external legacy server is running on (if handling legacy is disabled).")
-	proxyPort := flag.Int("proxyPort", serverSettings.ProxyPort, "proxy listen port")
-	serverHttpPort := flag.Int("serverHttpPort", serverSettings.ServerHTTPPort, "zip server http listen port")
+	externalLegacyPort := flag.String("externalLegacyPort", serverSettings.ExternalLegacyPort, "The port that the external legacy server is running on (if handling legacy is disabled).")
+	proxyPort := flag.String("proxyPort", serverSettings.ProxyPort, "proxy listen port")
+	serverHttpPort := flag.String("serverHttpPort", serverSettings.ServerHTTPPort, "zip server http listen port")
 	useMad4FP := flag.Bool("UseMad4FP", serverSettings.UseMad4FP, "flag to turn on/off Mad4FP.")
 	enableHttpsProxy := flag.Bool("enableHttpsProxy", serverSettings.EnableHttpsProxy, "Whether to enable HTTPS proxying or not")
 	allowCrossDomain := flag.Bool("allowCrossDomain", serverSettings.AllowCrossDomain, "Whether to allow cross-domain requests")
@@ -153,8 +152,8 @@ func initServer() {
 	// Setup the proxy
 	proxy = goproxy.NewProxyHttpServer()
 	proxy.Verbose = serverSettings.VerboseLogging
-	fmt.Println("Proxy Server started on port", strconv.Itoa(serverSettings.ProxyPort))
-	fmt.Println("Zip Server started on port", strconv.Itoa(serverSettings.ServerHTTPPort))
+	fmt.Println("Proxy Server started on port", serverSettings.ProxyPort)
+	fmt.Println("Zip Server started on port", serverSettings.ServerHTTPPort)
 }
 
 func setContentType(r *http.Request, resp *http.Response) {
@@ -219,7 +218,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 		Method: r.Method,
 		URL: &url.URL{
 			Scheme:   "http",
-			Host:     "127.0.0.1:" + strconv.Itoa(serverSettings.ServerHTTPPort),
+			Host:     "127.0.0.1:" + serverSettings.ServerHTTPPort,
 			Path:     "content/" + r.URL.Host + r.URL.Path,
 			RawQuery: r.URL.RawQuery,
 		},
@@ -269,7 +268,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 			proxyResp = resRecorder.Result()
 		} else {
 			// Set the Proxy URL and apply it to the Transpor layer so that the request respects the proxy.
-			proxyURL, _ := url.Parse("http://127.0.0.1:" + strconv.Itoa(serverSettings.ExternalLegacyPort))
+			proxyURL, _ := url.Parse("http://127.0.0.1:" + serverSettings.ExternalLegacyPort)
 			proxy := http.ProxyURL(proxyURL)
 			transport := &http.Transport{Proxy: proxy}
 
@@ -277,7 +276,7 @@ func handleRequest(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http
 			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 				//Set Dialer timeout and keepalive to 30 seconds and force the address to localhost.
 				dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
-				addr = "127.0.0.1:" + strconv.Itoa(serverSettings.ExternalLegacyPort)
+				addr = "127.0.0.1:" + serverSettings.ExternalLegacyPort
 				return dialer.DialContext(ctx, network, addr)
 			}
 
@@ -368,7 +367,7 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 	go func() {
 		//TODO: Update these to be modifiable in the properties json.
 		//TODO: Also update the "fpProxy/api/" to be in the properties json.
-		log.Fatal(http.ListenAndServe("127.0.0.1:"+strconv.Itoa(serverSettings.ServerHTTPPort),
+		log.Fatal(http.ListenAndServe("127.0.0.1:"+serverSettings.ServerHTTPPort,
 			zipfs.EmptyFileServer(
 				serverSettings.ApiPrefix,
 				"",
@@ -384,5 +383,5 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 	}()
 
 	// Start proxy server
-	log.Fatal(http.ListenAndServe("127.0.0.1:"+strconv.Itoa(serverSettings.ProxyPort), http.AllowQuerySemicolons(proxy)))
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+serverSettings.ProxyPort, http.AllowQuerySemicolons(proxy)))
 }
