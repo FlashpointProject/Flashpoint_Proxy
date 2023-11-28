@@ -99,32 +99,32 @@ func initServer() {
 	flag.Parse()
 
 	// Apply all of the flags to the settings
-	serverSettings.RootPath, err = filepath.Abs(strings.Trim(*rootPath, string(os.PathSeparator)))
+	serverSettings.RootPath, err = filepath.Abs(strings.Trim(*rootPath, "\""))
 	if err != nil {
 		fmt.Println("Failed to get absolute root path")
 		panic(err)
 	}
-	serverSettings.GameDataPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*gameDataPath, string(os.PathSeparator))))
+	serverSettings.GameDataPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*gameDataPath, "\"")))
 	if err != nil {
 		fmt.Println("Failed to get absolute game data path")
 		panic(err)
 	}
-	serverSettings.LegacyPHPPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyPHPPath, string(os.PathSeparator))))
+	serverSettings.LegacyPHPPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyPHPPath, "\"")))
 	if err != nil {
 		fmt.Println("Failed to get absolute PHP path")
 		panic(err)
 	}
-	serverSettings.LegacyCGIBINPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyCGIBINPath, string(os.PathSeparator))))
+	serverSettings.LegacyCGIBINPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyCGIBINPath, "\"")))
 	if err != nil {
 		fmt.Println("Failed to get absolute cgi-bin path")
 		panic(err)
 	}
-	serverSettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyHTDOCSPath, string(os.PathSeparator))))
+	serverSettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyHTDOCSPath, "\"")))
 	if err != nil {
 		fmt.Println("Failed to get absolute htdocs path")
 		panic(err)
 	}
-	serverSettings.PhpCgiPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*phpCgiPath, string(os.PathSeparator))))
+	serverSettings.PhpCgiPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*phpCgiPath, "\"")))
 	if err != nil {
 		fmt.Println("Failed to get absolute PHP-CGI path")
 		panic(err)
