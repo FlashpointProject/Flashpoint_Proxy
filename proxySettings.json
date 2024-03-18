@@ -17,7 +17,6 @@
   "verboseLogging": false,
   "apiPrefix": "fpProxy/api/",
   "overridePaths": [
-    "../Legacy/htdocs/content/",
     "../Legacy/middleware_overrides/"
   ],
   "legacyOverridePaths": [],
