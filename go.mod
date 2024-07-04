@@ -1,6 +1,6 @@
 module github.com/FlashpointProject/FlashpointGameServer
 
-go 1.18
+go 1.16
 
 require (
 	github.com/FlashpointProject/zipfs v0.0.0-20231103125305-60ba85d03bce
