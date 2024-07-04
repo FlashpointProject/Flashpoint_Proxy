@@ -383,5 +383,5 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 	}()
 
 	// Start proxy server
-	log.Fatal(http.ListenAndServe("127.0.0.1:"+serverSettings.ProxyPort, http.AllowQuerySemicolons(proxy)))
+	log.Fatal(http.ListenAndServe("127.0.0.1:"+serverSettings.ProxyPort, proxy))
 }
