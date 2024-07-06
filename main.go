@@ -68,66 +68,57 @@ func initServer() {
 		panic(err)
 	}
 
-	// Unmarshal the JSON data into a Config struct
+	// Unmarshal the JSON data (default values) into a Config struct
 	err = json.Unmarshal(data, &serverSettings)
 	if err != nil {
 		panic(err)
 	}
 
-	// Get all of the parameters passed in
-	// TODO: Figure out a way to (partially?) automate everything that's going on below
+	// Match command-line flags to their respective values
+	// TODO: Figure out a way to automate everything that's going on below
 	// TODO: Improve descriptions
-	rootPath := flag.String("rootPath", serverSettings.RootPath, "The path that other relative paths use as a base")
-	gameDataPath := flag.String("gameRootPath", serverSettings.GameDataPath, "This is the path where to find the zips")
-	legacyPHPPath := flag.String("legacyPHPPath", serverSettings.LegacyPHPPath, "This is the path for PHP")
-	legacyCGIBINPath := flag.String("legacyCGIBINPath", serverSettings.LegacyCGIBINPath, "This is the path for CGI-BIN")
-	legacyHTDOCSPath := flag.String("legacyHTDOCSPath", serverSettings.LegacyHTDOCSPath, "This is the path for HTDOCS")
-	phpCgiPath := flag.String("phpCgiPath", serverSettings.PhpCgiPath, "Path to PHP CGI executable")
-	useInfinityServer := flag.Bool("useInfinityServer", serverSettings.UseInfinityServer, "Whether to use the infinity server or not")
-	infinityServerURL := flag.String("infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
-	handleLegacyRequests := flag.Bool("handleLegacyRequests", serverSettings.HandleLegacyRequests, "Whether to handle legacy requests internally (true) or externally (false)")
-	externalLegacyPort := flag.String("externalLegacyPort", serverSettings.ExternalLegacyPort, "The port that the external legacy server is running on (if handling legacy is disabled).")
-	proxyPort := flag.String("proxyPort", serverSettings.ProxyPort, "proxy listen port")
-	serverHttpPort := flag.String("serverHttpPort", serverSettings.ServerHTTPPort, "zip server http listen port")
-	useMad4FP := flag.Bool("UseMad4FP", serverSettings.UseMad4FP, "flag to turn on/off Mad4FP.")
-	enableHttpsProxy := flag.Bool("enableHttpsProxy", serverSettings.EnableHttpsProxy, "Whether to enable HTTPS proxying or not")
-	allowCrossDomain := flag.Bool("allowCrossDomain", serverSettings.AllowCrossDomain, "Whether to allow cross-domain requests")
-	verboseLogging := flag.Bool("verboseLogging", serverSettings.VerboseLogging, "should every proxy request be logged to stdout")
-	apiPrefix := flag.String("apiPrefix", serverSettings.ApiPrefix, "apiPrefix is used to prefix any API call.")
+	// NOTE: If Go's basic types ever implement the Value interface flag.Var() can be used to avoid passing struct members twice
+	flag.StringVar(&serverSettings.RootPath, "rootPath", serverSettings.RootPath, "The path that other relative paths use as a base")
+	flag.StringVar(&serverSettings.GameDataPath, "gameRootPath", serverSettings.GameDataPath, "This is the path where to find the zips")
+	flag.StringVar(&serverSettings.LegacyPHPPath, "legacyPHPPath", serverSettings.LegacyPHPPath, "This is the path for PHP")
+	flag.StringVar(&serverSettings.LegacyCGIBINPath, "legacyCGIBINPath", serverSettings.LegacyCGIBINPath, "This is the path for CGI-BIN")
+	flag.StringVar(&serverSettings.LegacyHTDOCSPath, "legacyHTDOCSPath", serverSettings.LegacyHTDOCSPath, "This is the path for HTDOCS")
+	flag.StringVar(&serverSettings.PhpCgiPath, "phpCgiPath", serverSettings.PhpCgiPath, "Path to PHP CGI executable")
+	flag.BoolVar(&serverSettings.UseInfinityServer, "useInfinityServer", serverSettings.UseInfinityServer, "Whether to use the infinity server or not")
+	flag.StringVar(&serverSettings.InfinityServerURL, "infinityServerURL", serverSettings.InfinityServerURL, "The URL of the infinity server")
+	flag.BoolVar(&serverSettings.HandleLegacyRequests, "handleLegacyRequests", serverSettings.HandleLegacyRequests, "Whether to handle legacy requests internally (true) or externally (false)")
+	flag.StringVar(&serverSettings.ExternalLegacyPort, "externalLegacyPort", serverSettings.ExternalLegacyPort, "The port that the external legacy server is running on (if handling legacy is disabled).")
+	flag.StringVar(&serverSettings.ProxyPort, "proxyPort", serverSettings.ProxyPort, "proxy listen port")
+	flag.StringVar(&serverSettings.ServerHTTPPort, "serverHttpPort", serverSettings.ServerHTTPPort, "zip server http listen port")
+	flag.BoolVar(&serverSettings.UseMad4FP, "UseMad4FP", serverSettings.UseMad4FP, "flag to turn on/off Mad4FP.")
+	flag.BoolVar(&serverSettings.EnableHttpsProxy, "enableHttpsProxy", serverSettings.EnableHttpsProxy, "Whether to enable HTTPS proxying or not")
+	flag.BoolVar(&serverSettings.AllowCrossDomain, "allowCrossDomain", serverSettings.AllowCrossDomain, "Whether to allow cross-domain requests")
+	flag.BoolVar(&serverSettings.VerboseLogging, "verboseLogging", serverSettings.VerboseLogging, "should every proxy request be logged to stdout")
+	flag.StringVar(&serverSettings.ApiPrefix, "apiPrefix", serverSettings.ApiPrefix, "apiPrefix is used to prefix any API call.")
 
+	// Override default values with those for which a flag is set
 	flag.Parse()
 
-	// Apply all of the flags to the settings
-	serverSettings.RootPath, err = filepath.Abs(strings.Trim(*rootPath, "\""))
+	// Ensure paths are absolute
+	serverSettings.RootPath, err = filepath.Abs(strings.Trim(serverSettings.RootPath, "\""))
 	if err != nil {
 		fmt.Println("Failed to get absolute root path")
 		panic(err)
 	}
 
-	getAbsConfigPath := func(p string) string {
-		if filepath.IsAbs(p) {
-			return filepath.Clean(p)
+	makeConfigPathAbs := func(p *string) {
+		if filepath.IsAbs(*p) {
+			*p = filepath.Clean(*p)
 		} else {
-			return filepath.Join(serverSettings.RootPath, strings.Trim(p, "\"")) // Join also calls Clean
+			*p = filepath.Join(serverSettings.RootPath, strings.Trim(*p, "\"")) // Join also calls Clean
 		}
 	}
 
-	serverSettings.GameDataPath = getAbsConfigPath(*gameDataPath)
-	serverSettings.LegacyPHPPath = getAbsConfigPath(*legacyPHPPath)
-	serverSettings.LegacyCGIBINPath = getAbsConfigPath(*legacyCGIBINPath)
-	serverSettings.LegacyHTDOCSPath = getAbsConfigPath(*legacyHTDOCSPath)
-	serverSettings.PhpCgiPath = getAbsConfigPath(*phpCgiPath)
-	serverSettings.UseInfinityServer = *useInfinityServer
-	serverSettings.InfinityServerURL = *infinityServerURL
-	serverSettings.HandleLegacyRequests = *handleLegacyRequests
-	serverSettings.ExternalLegacyPort = *externalLegacyPort
-	serverSettings.ProxyPort = *proxyPort
-	serverSettings.ServerHTTPPort = *serverHttpPort
-	serverSettings.UseMad4FP = *useMad4FP
-	serverSettings.EnableHttpsProxy = *enableHttpsProxy
-	serverSettings.AllowCrossDomain = *allowCrossDomain
-	serverSettings.VerboseLogging = *verboseLogging
-	serverSettings.ApiPrefix = *apiPrefix
+	makeConfigPathAbs(&serverSettings.GameDataPath)
+	makeConfigPathAbs(&serverSettings.LegacyPHPPath)
+	makeConfigPathAbs(&serverSettings.LegacyCGIBINPath)
+	makeConfigPathAbs(&serverSettings.LegacyHTDOCSPath)
+	makeConfigPathAbs(&serverSettings.PhpCgiPath)
 
 	// Print out all path settings
 	fmt.Println("Root Path:", serverSettings.RootPath)
