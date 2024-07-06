@@ -14,7 +14,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -104,31 +103,20 @@ func initServer() {
 		fmt.Println("Failed to get absolute root path")
 		panic(err)
 	}
-	serverSettings.GameDataPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*gameDataPath, "\"")))
-	if err != nil {
-		fmt.Println("Failed to get absolute game data path")
-		panic(err)
+
+	getAbsConfigPath := func(p string) string {
+		if filepath.IsAbs(p) {
+			return filepath.Clean(p)
+		} else {
+			return filepath.Join(serverSettings.RootPath, strings.Trim(p, "\"")) // Join also calls Clean
+		}
 	}
-	serverSettings.LegacyPHPPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyPHPPath, "\"")))
-	if err != nil {
-		fmt.Println("Failed to get absolute PHP path")
-		panic(err)
-	}
-	serverSettings.LegacyCGIBINPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyCGIBINPath, "\"")))
-	if err != nil {
-		fmt.Println("Failed to get absolute cgi-bin path")
-		panic(err)
-	}
-	serverSettings.LegacyHTDOCSPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*legacyHTDOCSPath, "\"")))
-	if err != nil {
-		fmt.Println("Failed to get absolute htdocs path")
-		panic(err)
-	}
-	serverSettings.PhpCgiPath, err = filepath.Abs(path.Join(serverSettings.RootPath, strings.Trim(*phpCgiPath, "\"")))
-	if err != nil {
-		fmt.Println("Failed to get absolute PHP-CGI path")
-		panic(err)
-	}
+
+	serverSettings.GameDataPath = getAbsConfigPath(*gameDataPath)
+	serverSettings.LegacyPHPPath = getAbsConfigPath(*legacyPHPPath)
+	serverSettings.LegacyCGIBINPath = getAbsConfigPath(*legacyCGIBINPath)
+	serverSettings.LegacyHTDOCSPath = getAbsConfigPath(*legacyHTDOCSPath)
+	serverSettings.PhpCgiPath = getAbsConfigPath(*phpCgiPath)
 	serverSettings.UseInfinityServer = *useInfinityServer
 	serverSettings.InfinityServerURL = *infinityServerURL
 	serverSettings.HandleLegacyRequests = *handleLegacyRequests
