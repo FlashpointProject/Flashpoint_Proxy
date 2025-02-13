@@ -6,7 +6,7 @@
   "legacyHTDOCSPath": "Legacy/htdocs/",
   "phpCgiPath": "Legacy/php-cgi.exe",
   "useInfinityServer": false,
-  "infinityServerURL": "https://infinity.unstable.life/Flashpoint/Legacy/htdocs/",
+  "infinityServerURL": "https://infinity.flashpointarchive.org/Flashpoint/Legacy/htdocs/",
   "handleLegacyRequests": false,
   "externalLegacyPort": "22600",
   "proxyPort": "22500",
@@ -21,7 +21,8 @@
   ],
   "legacyOverridePaths": [],
   "externalFilePaths": [
-    "http://infinity.unstable.life/Flashpoint/Legacy/htdocs",
+    "http://infinity.flashpointarchive.org/Flashpoint/Legacy/htdocs",
+    "http://infinity.unstable.life/Flashpoint/Legacy/htdocs/",
     "http://archive.org/download/FP90Data/FP90Data.zip/htdocs"
   ],
   "extScriptTypes": [
