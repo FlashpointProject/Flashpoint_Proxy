@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FlashpointProject/zipfs"
+	"github.com/FlashpointProject/FlashpointGameServer/zipfs"
 )
 
 // Tries to serve a legacy file if available

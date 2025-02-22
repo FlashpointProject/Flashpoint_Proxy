@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FlashpointProject/zipfs"
+	"github.com/FlashpointProject/FlashpointGameServer/zipfs"
 	"github.com/elazarl/goproxy"
 )
 
@@ -365,20 +365,21 @@ XgVWIMrKj4T7p86bcxq4jdWDYUYpRd/2Og==
 
 	// Start ZIP server
 	go func() {
+		zipServer := zipfs.EmptyFileServer(
+			serverSettings.ApiPrefix,
+			"",
+			serverSettings.VerboseLogging,
+			serverSettings.ExtIndexTypes,
+			serverSettings.GameDataPath,
+			serverSettings.PhpCgiPath,
+			serverSettings.ExtMimeTypes,
+			serverSettings.OverridePaths,
+			serverSettings.LegacyHTDOCSPath,
+		)
 		//TODO: Update these to be modifiable in the properties json.
 		//TODO: Also update the "fpProxy/api/" to be in the properties json.
 		log.Fatal(http.ListenAndServe("127.0.0.1:"+serverSettings.ServerHTTPPort,
-			zipfs.EmptyFileServer(
-				serverSettings.ApiPrefix,
-				"",
-				serverSettings.VerboseLogging,
-				serverSettings.ExtIndexTypes,
-				serverSettings.GameDataPath,
-				serverSettings.PhpCgiPath,
-				serverSettings.ExtMimeTypes,
-				serverSettings.OverridePaths,
-				serverSettings.LegacyHTDOCSPath,
-			),
+			zipServer,
 		))
 	}()
 

@@ -1,3 +1,0 @@
-[submodule "zipfs"]
-	path = zipfs
-	url = https://github.com/FlashpointProject/zipfs.git
